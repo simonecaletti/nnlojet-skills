@@ -87,7 +87,7 @@ For each mode, stdout shows per point: `wt1` (full ME), `wt2`
 - **Fail — report precisely**: state the CHANNEL and the failing mode(s)
   by name (e.g. "channel 5, limit 5||6 collinear"). That is the actionable
   output: the failing limit identifies which subtraction lines are
-  suspect.
+  suspect (limit → antenna mapping: antennae-naming-convention skill).
 - Symptom guide:
   - ratio → constant ≠ 1 in a limit → wrong normalisation / colour factor
     on the covering line;

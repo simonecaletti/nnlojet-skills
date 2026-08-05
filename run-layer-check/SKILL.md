@@ -69,7 +69,9 @@ literally `0`.
   test passed** (per order).
 - Otherwise → **report that it did not pass** (and at which order). The
   script prints the non-cancelling residue; do not attempt fixes on your
-  own — leave interpretation to the user unless asked.
+  own — leave interpretation to the user unless asked. (The residue
+  symbols — `calX30`, `J21*`, ... — decode via the
+  antennae-naming-convention skill.)
 - `RuntimeError ... Check layer_check.log` → FORM itself failed; report
   and point at `layer_check.log`.
 - `ValueError: "Channels and QCD factors must be in equal number"` →

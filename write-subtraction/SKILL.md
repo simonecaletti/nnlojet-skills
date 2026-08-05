@@ -57,7 +57,8 @@ Every line of `XX` is:
 ±  antenna(...) × reducedME(mapped args) × JETnm(...) × aN
 ```
 
-- **Antennae** (from `notation.map`): tree 3-parton `ant30set` split by
+- **Antennae** (from `notation.map`; full grammar + limit coverage:
+  antennae-naming-convention skill): tree 3-parton `ant30set` split by
   configuration — FF (`A30FF, D30FF, d30FF, E30FF, F30FF, ...`), IF
   (`gA30IF, qA30IF, qE30IF, ...`), FI, II (`qqA30II, ...`); 4-parton
   `ant40set` (`A40, At40, B40, D40, E40, Et40, ...`) for double-unresolved;
