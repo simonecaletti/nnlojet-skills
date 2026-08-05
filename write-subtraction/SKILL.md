@@ -6,7 +6,7 @@ description: >
   modify, or debug a subtraction term, fix a channel that fails a spike test,
   or add missing infrared limits to a subtraction. This skill covers ONLY the
   maple .map file; generating Fortran and registering it is the
-  register-subtraction skill, and validation is the run-spike-test skill.
+  autogen-subtraction skill, and validation is the run-spike-test skill.
 ---
 
 # Writing NNLOJET subtraction terms (maple level)
@@ -108,6 +108,6 @@ neighbouring process (`maple/process/` is full of worked examples).
 
 ## Next step
 
-After editing the `.map`, use the **register-subtraction** skill to
+After editing the `.map`, use the **autogen-subtraction** skill to
 generate the Fortran and hook it into the spike-test build, then
 **run-spike-test** to validate. Loop back here if a limit still fails.

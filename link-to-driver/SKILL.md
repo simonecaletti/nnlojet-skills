@@ -56,7 +56,7 @@ the `auto` prefix, e.g. `driver/process/Z/B1g0ZSNLO.f`):
 
 1. **Base crossing** → call the subtraction term generated at src level
    by the maple pipeline (`src/process/<DIR>/auto<name>.f`, from
-   makefortRR/RV — see register-subtraction), with the correct argument
+   makefortRR/RV — see autogen-subtraction), with the correct argument
    order.
 2. **Other crossings** → alias the base crossing (bridge pattern):
 

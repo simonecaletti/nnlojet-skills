@@ -5,7 +5,7 @@ description: >
   that validate antenna-subtraction terms against the full matrix element in
   infrared limits. Use whenever the user asks to spike-test a channel, check
   a subtraction term, verify infrared cancellation, or after a subtraction
-  term was edited/registered (write-subtraction / register-subtraction
+  term was edited/registered (write-subtraction / autogen-subtraction
   skills). Runs with iplot=2 only; iplot=1 plot production is user-driven.
 ---
 
@@ -103,5 +103,5 @@ For each mode, stdout shows per point: `wt1` (full ME), `wt2`
 
 Report the failing channel + limit(s). If the user wants a fix, invoke
 the **write-subtraction** skill (the failing limit pinpoints the lines),
-then **register-subtraction**, then rerun here. Iterate until all limits
+then **autogen-subtraction**, then rerun here. Iterate until all limits
 pass.

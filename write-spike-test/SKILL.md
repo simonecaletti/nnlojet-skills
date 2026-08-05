@@ -92,6 +92,6 @@ Use DISWp's `check5to3.f` mode grouping as the checklist model.
 ## After writing
 
 Build with `make -j8`, then hand over to **run-spike-test**. A brand-new
-term also needs the **register-subtraction** checklist (NNLOJET.mk +
+term also needs the **autogen-subtraction** checklist (NNLOJET.mk +
 this makefile + the case entries). `hg add` the new files (no commit
 unless asked).
