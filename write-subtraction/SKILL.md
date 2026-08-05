@@ -65,7 +65,8 @@ Every line of `XX` is:
   `SSset = {SFF, SIF, SFI, SII}`. Integrated dipoles `J21*`/`J22*`
   (`J21QGFF`, ...) appear in RV/V terms.
 - **Reduced MEs** are the Fortran-level ME names (`B0g0Z`,
-  `B0g0ZHepemxBy0g0H`, ...). Mapped (clustered) momenta are bracketed:
+  `B0g0ZHepemxBy0g0H`, ...; naming grammar and crossing rules:
+  me-naming-convention skill). Mapped (clustered) momenta are bracketed:
   `[i,j]` = single mapping, `[[i,j],[j,k]]` = iterated mapping.
 - **Jet functions** `JETnm(args)`: `n` = resolved jets, `m` = final-state
   partons in the reduced kinematics (`JET00 ... JET33`). Args must be the

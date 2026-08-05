@@ -105,7 +105,8 @@ photon; explicit `u/ub/d/db` only where dressing cannot produce the
 pairing (region a/b, see below).
 
 **Finding the matrix elements** — nomenclature
-`[s|f1|f2|Full]<Letter>[t|tt|h|hh|th]<n>g<l><PROCtag>[a|b|c][_OL]`:
+`[s|f1|f2|Full]<Letter>[t|tt|h|hh|th]<n>g<l><PROCtag>[a|b|c][_OL]`
+(full grammar + crossing semantics: me-naming-convention skill):
 
 - Letter = quark-line structure: `A` 0 pairs (pure gluon), `B` 1 pair,
   `C` 2 distinct pairs, `D` 2 identical, `E`/`F`/`G` 3 pairs
