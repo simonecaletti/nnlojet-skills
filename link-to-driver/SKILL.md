@@ -36,7 +36,8 @@ files by hand.
 ## Step 2 — implement the auto*.f stubs
 
 `makedummy` (called by makeproc) emits one `auto<ME><TAIL>.f` per
-counterterm matrix element and layer (`TAIL` in `SNLO, TNLO, S, T, U`),
+counterterm matrix element and layer (`TAIL` in `SNLO, TNLO, S, T, U`;
+ME names decode via the me-naming-convention skill),
 containing one function per initial-state crossing, ALL generated as
 placeholders:
 

@@ -23,7 +23,8 @@ description: >
    ```
 
    Layer headers (`c -- real`, `c -- virtual`, `c -- double real`, ...)
-   partition the IDs into LO / R / V / RR / RV / VV.
+   partition the IDs into LO / R / V / RR / RV / VV. The `me_str` names
+   decode via the me-naming-convention skill.
 2. **`driver/process/<PROC>/array<PROC>.dat`** — the full generated
    channel table (header line documents the record layout: iproc,
    initial state, final state, ME, colour/symmetry factors, PDG codes).
