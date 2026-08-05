@@ -14,20 +14,38 @@ without changing `include`/`use`/module dependencies.
 
 ```
 cd driver
-make skipdepend=true -j
+make skipdepend=true
 ```
 
-(`make mode=skipdepend -j` is equivalent — `driver/makefile` maps `mode=skipdepend` to
-`skipdepend=true` internally.)
+No `-j` — this build must run serially (see below). (`make mode=skipdepend` is equivalent —
+`driver/makefile` maps `mode=skipdepend` to `skipdepend=true` internally.)
 
-This builds the `NNLOJET` target without regenerating dependency files, compiling only the
-objects whose source actually changed (per existing `.o` timestamps/deps).
+This builds the `NNLOJET` target without regenerating dependency files. Note: with
+`skipdepend=true` the `DEPS` variable is left **empty** (`driver/makefile:602-608` — the `else`
+branch that populates it is skipped), so `-include $(DEPS)` at `driver/makefile:740` includes
+nothing and the existing `.d` files in `driver/deps/` are never read. Object selection is by
+`.o` timestamp ONLY; recorded dependencies play no part.
+
+## Why not `-j`
+
+Empty `DEPS` means there are NO inter-object ordering constraints at all, so a parallel make
+compiles modules concurrently with their consumers. Recognisable symptom: you add a symbol to a
+module (say a new function in `EvalFuncs.f90`) and bind it in `Observables.f90`, and the
+parallel build dies with
+
+```
+Error: Symbol '<new_symbol>' at (1) has no IMPLICIT type
+```
+
+because the consumer compiled against the stale `.mod`. Serial `make skipdepend=true` avoids
+the race.
 
 ## When NOT to use this
 
 Do a normal `make -j` (no `skipdepend`) if you:
 - added or removed a source file
 - changed which modules/includes a file depends on (new `use`/`include` statements)
+- added or renamed a public module entity (function, variable, type) consumed by another file
 - are unsure why a build is behaving unexpectedly (stale deps can mask real breakage)
 
 If a fast rebuild produces confusing link errors or missing symbols, fall back to a full

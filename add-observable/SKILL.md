@@ -91,9 +91,14 @@ Name limit 32 chars, description 224. `bind_obs` does no duplicate checking
 ## Step 3 — rebuild and verify
 
 ```bash
-cd driver && make skipdepend=true -j     # OK: no new use statements/files
+cd driver && make skipdepend=true        # serial! skipdepend drops ALL dependency
+                                         # info; -j races module compiles against
+                                         # their consumers (see fast-rebuild skill)
 ./NNLOJET -listobs <PROCESS>             # new name must appear with its desc
 ```
+
+If `./NNLOJET` dies with a `libLHAPDF.so` loader error, see the
+get-lhapdf-lib-path skill.
 
 `-listobs` is build-accurate (it calls init_proc + init_obs); no extra step
 is needed for the observable to show up. If you created a *new* .f90 file

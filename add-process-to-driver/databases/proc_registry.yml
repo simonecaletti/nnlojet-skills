@@ -1,0 +1,128 @@
+# NNLOJET process registry — one entry per driver/maple/makeproc dispatch branch.
+#
+#   makeproc_iprocess : dispatch number in driver/maple/makeproc (elif(iprocess = N)then)
+#   imapprocess       : number in maple/iprocess.map (0 = no subtraction-dir link);
+#                       consumed ONLY by makecheck() — it indexes iprocess.map, NOT makeproc.
+#   maple             : maple/process/<...>  (subtraction-term .map sources; null = the
+#                       mymapdir declared in makeproc does not exist on disk)
+#   driver            : driver/process/<...> (generated driver files; null = dir absent)
+#   src               : src/process/<...>    (matrix-element Fortran; "shared" comments mark
+#                       families reusing another process's MEs; null = no dir found)
+#
+# NOTE: test/layer_check/databases/proc_folder_db.yml is the layer_check tool's own copy of
+# the maple/driver folder mapping — keep the two files in sync when adding processes.
+# All folders below were verified against the working copy on 2026-08-05.
+
+test:      {makeproc_iprocess: 0,   imapprocess: 0,   maple: null, driver: test,    src: null}   # mymapdir maple/process/test missing
+Z:         {makeproc_iprocess: 1,   imapprocess: 5,   maple: DY,   driver: Z,       src: DY}
+ZJ:        {makeproc_iprocess: 2,   imapprocess: 3,   maple: Z,    driver: ZJ,      src: Z}
+ZJJ:       {makeproc_iprocess: 3,   imapprocess: 0,   maple: null, driver: ZJJ,     src: ZJJ}
+ZJJJ:      {makeproc_iprocess: 4,   imapprocess: 0,   maple: null, driver: ZJJJ,    src: null}
+H:         {makeproc_iprocess: 5,   imapprocess: 19,  maple: H,    driver: H,       src: H}
+H2:        {makeproc_iprocess: 6,   imapprocess: 19,  maple: H,    driver: H2,      src: H}     # shared (decay variant)
+HJ:        {makeproc_iprocess: 7,   imapprocess: 2,   maple: H,    driver: HJ,      src: H}
+H2J:       {makeproc_iprocess: 8,   imapprocess: 0,   maple: null, driver: H2J,     src: H}     # shared
+HJJ:       {makeproc_iprocess: 9,   imapprocess: 0,   maple: null, driver: HJJ,     src: H}     # shared
+H2JJ:      {makeproc_iprocess: 10,  imapprocess: 0,   maple: null, driver: H2JJ,    src: H}     # shared
+HJJJ:      {makeproc_iprocess: 11,  imapprocess: 0,   maple: null, driver: HJJJ,    src: H}     # shared
+H2JJJ:     {makeproc_iprocess: 12,  imapprocess: 0,   maple: null, driver: H2JJJ,   src: H}     # shared
+Hm:        {makeproc_iprocess: 13,  imapprocess: 19,  maple: H,    driver: Hm,      src: H}     # shared
+HJm:       {makeproc_iprocess: 14,  imapprocess: 2,   maple: H,    driver: HJm,     src: H}     # shared
+H2m:       {makeproc_iprocess: 15,  imapprocess: 2,   maple: H,    driver: H2m,     src: H}     # shared
+H2Jm:      {makeproc_iprocess: 16,  imapprocess: 2,   maple: H,    driver: H2Jm,    src: H}     # shared
+H4m:       {makeproc_iprocess: 17,  imapprocess: 19,  maple: H,    driver: H4m,     src: H}     # shared
+H4Jm:      {makeproc_iprocess: 18,  imapprocess: 2,   maple: H,    driver: H4Jm,    src: H}     # shared
+H4:        {makeproc_iprocess: 19,  imapprocess: 19,  maple: H,    driver: H4,      src: H}     # shared
+H4J:       {makeproc_iprocess: 20,  imapprocess: 2,   maple: H,    driver: H4J,     src: H}     # shared
+H4JJ:      {makeproc_iprocess: 21,  imapprocess: 0,   maple: null, driver: H4JJ,    src: H}     # shared
+H4JJJ:     {makeproc_iprocess: 22,  imapprocess: 0,   maple: null, driver: H4JJJ,   src: H}     # shared
+H3m:       {makeproc_iprocess: 23,  imapprocess: 19,  maple: H,    driver: H3m,     src: H}     # shared
+H3Jm:      {makeproc_iprocess: 24,  imapprocess: 2,   maple: H,    driver: H3Jm,    src: H}     # shared
+H3:        {makeproc_iprocess: 25,  imapprocess: 19,  maple: H,    driver: H3,      src: H}     # shared
+H3J:       {makeproc_iprocess: 26,  imapprocess: 2,   maple: H,    driver: H3J,     src: H}     # shared
+H3JJ:      {makeproc_iprocess: 27,  imapprocess: 0,   maple: null, driver: H3JJ,    src: H}     # shared
+H3JJJ:     {makeproc_iprocess: 28,  imapprocess: 0,   maple: null, driver: H3JJJ,   src: H}     # shared
+jet:       {makeproc_iprocess: 29,  imapprocess: 1,   maple: jet,  driver: jet,     src: jet}
+3jet:      {makeproc_iprocess: 30,  imapprocess: 21,  maple: 3jet, driver: 3jet,    src: 3jet}
+4jet:      {makeproc_iprocess: 31,  imapprocess: 0,   maple: null, driver: 4jet,    src: 4jet}
+Wp:        {makeproc_iprocess: 32,  imapprocess: 9,   maple: W,    driver: W,       src: W}
+Wm:        {makeproc_iprocess: 33,  imapprocess: 9,   maple: W,    driver: W,       src: W}
+WpJ:       {makeproc_iprocess: 34,  imapprocess: 8,   maple: WJ,   driver: WJ,      src: WJ}
+WmJ:       {makeproc_iprocess: 35,  imapprocess: 8,   maple: WJ,   driver: WJ,      src: WJ}
+WpJJ:      {makeproc_iprocess: 36,  imapprocess: 15,  maple: WJ,   driver: WJJ,     src: WJJ}
+WmJJ:      {makeproc_iprocess: 37,  imapprocess: 15,  maple: WJ,   driver: WJJ,     src: WJJ}
+WpJJJ:     {makeproc_iprocess: 38,  imapprocess: 0,   maple: null, driver: WJJJ,    src: WJJJ}
+WmJJJ:     {makeproc_iprocess: 39,  imapprocess: 0,   maple: null, driver: WJJJ,    src: WJJJ}
+VFH:       {makeproc_iprocess: 40,  imapprocess: 6,   maple: VFH,  driver: VFH,     src: VFH}
+VFHJ:      {makeproc_iprocess: 41,  imapprocess: 14,  maple: VFHJ, driver: VFHJ,    src: VFHJ}
+VFHfull:   {makeproc_iprocess: 42,  imapprocess: 6,   maple: null, driver: VFHfull, src: VFH}   # mymapdir VFHfull missing; shared
+VFH2:      {makeproc_iprocess: 43,  imapprocess: 6,   maple: null, driver: VFH2,    src: VFH}   # mymapdir VFH2 missing; shared
+VFH2J:     {makeproc_iprocess: 44,  imapprocess: 14,  maple: null, driver: VFH2J,   src: VFHJ}  # mymapdir VFH2J missing; shared
+VFH3:      {makeproc_iprocess: 45,  imapprocess: 6,   maple: null, driver: VFH3,    src: VFH}   # mymapdir VFH3 missing; shared
+VFH3J:     {makeproc_iprocess: 46,  imapprocess: 14,  maple: null, driver: VFH3J,   src: VFHJ}  # mymapdir VFH3J missing; shared
+VFH4:      {makeproc_iprocess: 47,  imapprocess: 6,   maple: null, driver: VFH4,    src: VFH}   # mymapdir VFH4 missing; shared
+VFH4J:     {makeproc_iprocess: 48,  imapprocess: 14,  maple: null, driver: VFH4J,   src: VFHJ}  # mymapdir VFH4J missing; shared
+DIS:       {makeproc_iprocess: 49,  imapprocess: 4,   maple: DIS,  driver: DIS,     src: DIS}
+DIS1j:     {makeproc_iprocess: 50,  imapprocess: 10,  maple: DIS1j, driver: DIS1j,  src: DIS1j}
+DISG:      {makeproc_iprocess: 51,  imapprocess: 17,  maple: DISG, driver: DISG,    src: DISG}
+DISWm:     {makeproc_iprocess: 52,  imapprocess: 11,  maple: DISW, driver: DISW,    src: DISW}
+DISWm1j:   {makeproc_iprocess: 53,  imapprocess: 12,  maple: DISW1j, driver: DISW1j, src: DISW1j}
+DISWp:     {makeproc_iprocess: 54,  imapprocess: 11,  maple: DISW, driver: DISW,    src: DISW}
+DISWp1j:   {makeproc_iprocess: 55,  imapprocess: 12,  maple: DISW1j, driver: DISW1j, src: DISW1j}
+SFDIS:     {makeproc_iprocess: 56,  imapprocess: 0,   maple: null, driver: SFDIS,   src: DIS1j} # SF variants under src/process/DIS1j/SF*
+SFDISWm:   {makeproc_iprocess: 57,  imapprocess: 0,   maple: null, driver: SFDISW,  src: null}
+SFDISWp:   {makeproc_iprocess: 58,  imapprocess: 0,   maple: null, driver: SFDISW,  src: null}
+epem:      {makeproc_iprocess: 59,  imapprocess: 13,  maple: epem, driver: epem,    src: epem}
+ZHtobb:    {makeproc_iprocess: 60,  imapprocess: 0,   maple: null, driver: null,    src: VH}    # branch skipped in loop; no driver dir
+GJ:        {makeproc_iprocess: 61,  imapprocess: 16,  maple: G,    driver: G,       src: G}
+GJJ:       {makeproc_iprocess: 62,  imapprocess: 20,  maple: GJJ,  driver: GJJ,     src: GJJ}
+GJJJ:      {makeproc_iprocess: 63,  imapprocess: 0,   maple: null, driver: GJJJ,    src: GJJJ}  # mymapdir GJJJ missing
+GG:        {makeproc_iprocess: 64,  imapprocess: 18,  maple: GG,   driver: GG,      src: GG}
+Z_EW:      {makeproc_iprocess: 66,  imapprocess: 50,  maple: Z_EW, driver: Z_EW,    src: Z_EW}  # WARNING: imapprocess 50 now resolves to DYtest in iprocess.map (stale/dangling; latent — Z_EW is excluded from makecheck)
+G_EW:      {makeproc_iprocess: 67,  imapprocess: 0,   maple: G_EW, driver: G_EW,    src: G_EW}
+ZH:        {makeproc_iprocess: 70,  imapprocess: 30,  maple: VH,   driver: null,    src: VH}    # branch skipped in loop
+WpH:       {makeproc_iprocess: 71,  imapprocess: 31,  maple: VH,   driver: WH,      src: VH}
+WmH:       {makeproc_iprocess: 72,  imapprocess: 31,  maple: VH,   driver: WH,      src: VH}
+WpHJ:      {makeproc_iprocess: 73,  imapprocess: 41,  maple: VHJ,  driver: WHJ,     src: VHJ}
+WmHJ:      {makeproc_iprocess: 74,  imapprocess: 41,  maple: VHJ,  driver: WHJ,     src: VHJ}
+ZHJ:       {makeproc_iprocess: 80,  imapprocess: 40,  maple: VH,   driver: null,    src: VHJ}   # branch skipped in loop
+ZHJJ:      {makeproc_iprocess: 81,  imapprocess: 41,  maple: VH,   driver: null,    src: VHJ}   # branch skipped in loop
+HJJm:      {makeproc_iprocess: 82,  imapprocess: 2,   maple: null, driver: HJJm,    src: H}     # shared; mymapdir empty but imapprocess set
+HJJJm:     {makeproc_iprocess: 83,  imapprocess: 2,   maple: null, driver: HJJJm,   src: H}     # shared; mymapdir empty but imapprocess set
+GGJ:       {makeproc_iprocess: 84,  imapprocess: 0,   maple: GGJ,  driver: GGJ,     src: GGJ}
+GGJJ:      {makeproc_iprocess: 85,  imapprocess: 0,   maple: null, driver: GGJJ,    src: null}  # mymapdir GGJJ missing
+GG_EW:     {makeproc_iprocess: 86,  imapprocess: 24,  maple: GG_EW, driver: GG_EW,  src: GG_EW}
+GGG:       {makeproc_iprocess: 87,  imapprocess: 0,   maple: null, driver: GGG,     src: GGG}   # mymapdir GGG missing
+HJmrew:    {makeproc_iprocess: 88,  imapprocess: 2,   maple: H,    driver: HJmrew,  src: H}     # shared
+HJJmrew:   {makeproc_iprocess: 89,  imapprocess: 2,   maple: H,    driver: HJJmrew, src: H}     # shared
+5jet:      {makeproc_iprocess: 90,  imapprocess: 0,   maple: null, driver: 5jet,    src: null}
+2jetfc:    {makeproc_iprocess: 91,  imapprocess: 1,   maple: jet,  driver: 2jetfc,  src: jet}
+epemjj:    {makeproc_iprocess: 92,  imapprocess: 13,  maple: epemjj, driver: epemjj, src: epemjj}
+GGJfc:     {makeproc_iprocess: 93,  imapprocess: 0,   maple: GGJfc, driver: GGJfc,  src: GGJfc}
+GGJJfc:    {makeproc_iprocess: 94,  imapprocess: 0,   maple: GGJJfc, driver: GGJJfc, src: GGJJfc}
+GGJJJfc:   {makeproc_iprocess: 95,  imapprocess: 0,   maple: null, driver: GGJJJfc, src: null}  # mymapdir GGJJJfc missing
+epem_h:    {makeproc_iprocess: 96,  imapprocess: 0,   maple: epem_h, driver: epem_h, src: epem_h}
+ZJ_h:      {makeproc_iprocess: 97,  imapprocess: 3,   maple: ZJ_h, driver: ZJ_h,    src: ZJ_h}
+epemjj_h:  {makeproc_iprocess: 98,  imapprocess: 13,  maple: epemjj_h, driver: epemjj_h, src: epemjj_h}
+2jetfc_h:  {makeproc_iprocess: 99,  imapprocess: 1,   maple: null, driver: 2jetfc_h, src: jet}  # mymapdir jet_h missing
+WpJ_h:     {makeproc_iprocess: 100, imapprocess: 8,   maple: WJ_h, driver: WJ_h,    src: WJ_h}
+WmJ_h:     {makeproc_iprocess: 101, imapprocess: 8,   maple: WJ_h, driver: WJ_h,    src: WJ_h}
+GJ_frag:   {makeproc_iprocess: 102, imapprocess: 16,  maple: G,    driver: G_frag,  src: G}
+GG_frag:   {makeproc_iprocess: 103, imapprocess: 18,  maple: GG,   driver: GG_frag, src: GG}
+GJ_h:      {makeproc_iprocess: 104, imapprocess: 16,  maple: GJ_h, driver: GJ_h,    src: GJ_h}
+WpJunsym:  {makeproc_iprocess: 105, imapprocess: 8,   maple: WJunsym, driver: WJunsym, src: WJunsym}
+WmJunsym:  {makeproc_iprocess: 106, imapprocess: 8,   maple: WJunsym, driver: WJunsym, src: WJunsym}
+HH:        {makeproc_iprocess: 107, imapprocess: 19,  maple: null, driver: null,    src: null}  # mymapdir HH missing
+HHJ:       {makeproc_iprocess: 108, imapprocess: 19,  maple: null, driver: null,    src: null}  # mymapdir HHJ missing
+HHJJ:      {makeproc_iprocess: 109, imapprocess: 19,  maple: null, driver: null,    src: null}  # mymapdir HHJJ missing
+HHJJJ:     {makeproc_iprocess: 110, imapprocess: 19,  maple: null, driver: null,    src: null}  # mymapdir HHJJJ missing
+epemjjjj:  {makeproc_iprocess: 111, imapprocess: 13,  maple: null, driver: epemjjjj, src: null} # mymapdir epemjjjj missing
+epemZH2bb: {makeproc_iprocess: 112, imapprocess: 0,   maple: epemZH, driver: epemZH2bb, src: epemZH}
+epemZH2gg: {makeproc_iprocess: 113, imapprocess: 0,   maple: epemZH, driver: epemZH2gg, src: epemZH}
+WpJJJJ:    {makeproc_iprocess: 121, imapprocess: 0,   maple: null, driver: WJJJJ,   src: null}
+WmJJJJ:    {makeproc_iprocess: 122, imapprocess: 0,   maple: null, driver: WJJJJ,   src: null}
+DIS1j_h:   {makeproc_iprocess: 123, imapprocess: 101, maple: DIS1j_h, driver: DIS1j_h, src: DIS1j_h}
+DIS_h:     {makeproc_iprocess: 124, imapprocess: 102, maple: DIS_h, driver: DIS_h,  src: DIS_h}
+epemZHhad: {makeproc_iprocess: 125, imapprocess: 0,   maple: null, driver: epemZHhad, src: epemZHhad} # mymapdir epemZHhad missing
+epemZHgaga: {makeproc_iprocess: 126, imapprocess: 0,  maple: null, driver: epemZHgaga, src: epemZHgaga} # mymapdir epemZHgaga missing
+DYtest:    {makeproc_iprocess: 127, imapprocess: 50,  maple: DYtest, driver: null,  src: DY}    # clone of Z; makeproc not yet run (no driver dir); shares FLAVlistZ + DY MEs

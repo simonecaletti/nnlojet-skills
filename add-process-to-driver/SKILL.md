@@ -21,6 +21,27 @@ Always start from the closest existing map (`epem.map` for e+e−, `ZJ.map`
 / `WpJ.map` for hadronic, `DIS.map` for DIS, `H2.map` for decays) and
 study 2–3 neighbours before writing.
 
+## Process name ≠ folder name — resolve FIRST
+
+The runcard/driver process name and the maple/src folder names differ for
+several core processes. Resolve every name against
+`databases/proc_registry.yml` (next to this skill) before touching
+anything. The classic traps:
+
+| runcard/driver name | maple/process | src/process |
+|---|---|---|
+| `Z` (Drell-Yan) | `DY` | `DY` |
+| `ZJ` | `Z` | `Z` |
+| `GJ` | `G` | `G` |
+| `HJ` | `H` | `H` |
+| `Wp`/`Wm` | `W` | `W` |
+
+There is NO process named `DY` — "the DY process" means the `Z` process
+whose subtraction terms live in `maple/process/DY`. (The registry also
+records both iprocess numbers per process; `test/layer_check/databases/
+proc_folder_db.yml` is the layer_check tool's own copy of the folder
+mapping — keep the two in sync.)
+
 ## Skeleton (epem.map as model)
 
 ```maple
@@ -137,6 +158,14 @@ neighbouring process before use.
   1859) — otherwise channels are SILENTLY mis-crossed.
 - Any new identical-flavour ME (D/F/G-type) must be in makeproc's
   `identset` (~lines 156–174).
+- **`imapprocess` mis-numbering is SILENT**: setting it to a number from
+  the wrong table (makeproc vs iprocess.map), or leaving it stale while
+  `mymapdir` points somewhere real, makes the generated check scripts
+  read a *different process's* subtraction terms with no error. Live
+  example in this tree: Z_EW carries `imapprocess:=50`, which now
+  resolves to DYtest's iprocess.map entry. Cross-check against
+  `databases/proc_registry.yml` and grep BOTH tables for the number
+  before picking it.
 - Optional 4th element of an entry = Maple set of options: `{OL_qcd=n}` /
   `{OL_ew=n}` (mandatory for `*_OL` amplitudes), `{EW_real=n}`,
   `{EW_virt=n}`, `{CC=n}` (per-amplitude qFlavChange).
@@ -153,6 +182,23 @@ neighbouring process before use.
 Default deliverable is the `.map` file. Then ASK the user whether to
 register and run makeproc. If yes:
 
+There are TWO independent process-numbering tables — do not confuse them:
+
+- `driver/maple/makeproc` numbers (header comment + `elif(iprocess = N)`
+  dispatch): select which process makeproc generates.
+- `maple/iprocess.map` numbers (`getiprocess()`): a SEPARATE table giving
+  the maple subtraction `directory`, `iprocessname` (selects
+  `maple/FLAVlist<name>.map`), and the RR/RV/VV channel ranges.
+
+The link between them is `imapprocess`: it is an index into
+**`maple/iprocess.map`**, NOT into makeproc. It is consumed only by
+`makecheck(...)` (`makeproc:3110`), which bakes
+`maple makeRRcheck -Diprocess=<imapprocess>` lines into the generated
+`autocheck*` scripts (`mymapdir` supplies their `read ../<dir>auto*.map`
+paths). Worked example: Drell-Yan is `iprocess = 1` (`myname:="Z"`) in
+makeproc but `imapprocess = 5` in iprocess.map — unrelated numbers.
+Both numberings per process are recorded in `databases/proc_registry.yml`.
+
 1. In `driver/maple/makeproc`: add the header comment line
    (`# iprocess = N:  "<PROC>":`) and the dispatch branch:
 
@@ -162,11 +208,11 @@ register and run makeproc. If yes:
      mynameflag:="HADRON":        # or "DIS" or "epem"
      mydir:="../process/<PROC>/":
      mymapdir:="":                # or ../../maple/process/<DIR>/ for checks
-     imapprocess:=0:
+     imapprocess:=0:              # iprocess.map number; 0 = no check-script link
      MYJET:=`ecuts_vj`:           # process cuts routine, cf. neighbours
    ```
 
-2. Set the loop bound `for iprocess from N to N do` (~line 184).
+2. Set the loop bound `for iprocess from N to N do` (~line 183).
 3. `cd driver/maple && maple makeproc` (needs the maple binary; run from
    that directory — relative paths). Output into `driver/process/<PROC>/`:
    `sig{B,R,V,RR,RV,VV}*.f`, `sig{SNLO,TNLO,S,T,U}*.f`, `lumi*.f`,

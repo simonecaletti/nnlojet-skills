@@ -43,9 +43,10 @@ the process name, map them to runcard sections:
   hard-coded text, not build-introspection).
 - **"histogram of X" / "distribution in X"** → `HISTOGRAMS` line. First
   verify the observable name with `./NNLOJET -listobs <PROC>`
-  (build-accurate: calls init_proc + init_obs). If the observable does not
-  exist, tell the user and offer the `add-observable` skill — do not invent
-  names.
+  (build-accurate: calls init_proc + init_obs; if it dies with a
+  `libLHAPDF.so` loader error, see the get-lhapdf-lib-path skill). If the
+  observable does not exist, tell the user and offer the `add-observable`
+  skill — do not invent names.
 - **"cut on X" / fiducial cuts** → `SELECTORS` line. Selectors use the SAME
   registered observable names as histograms and scales (single registry,
   case-insensitive). Same `-listobs` check, same add-observable fallback.
@@ -128,6 +129,10 @@ must run from its own directory — cwd-relative config path).
 
 3. Check the `.log` and that expected `.dat` files appear, named
    `<PROC>.<RUNID>.<PART>.<obs>.s<seed>.dat`.
+
+An immediate `error while loading shared libraries: libLHAPDF.so` from
+either command is an environment problem, not a runcard problem — see
+the get-lhapdf-lib-path skill.
 
 ## Gotchas
 

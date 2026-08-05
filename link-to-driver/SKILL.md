@@ -92,12 +92,47 @@ After renaming, verify no placeholder survived:
 
 ## Step 4 — hook into the build
 
-The new files must be listed in `driver/makefile` (`PROC<NAME>` variable
-+ the appropriate `SRC_DRIVER_*` aggregate) and the src-level
-subtraction files in `NNLOJET.mk` (`SUBTRACTION_<PROC>`/`MATRIX_<PROC>`)
-— `autoAddFortran.py` automates part of this but review its output (see
-add-process-to-driver). Then build with a full `make -j` in `driver/`
-(new files ⇒ never skipdepend).
+Resolve folder names against
+`../add-process-to-driver/databases/proc_registry.yml` first (driver /
+maple / src names differ for several processes — no process is named
+`DY`; that is `Z`'s folder).
+
+1. `driver/makefile`: add the process dir to `DRIVERDIR` (`:86` ff.),
+   define a `PROC<NAME> = ...` file list (model: `PROCZ` at `:203`), and
+   add `$(PROC<NAME>)` to `SRC_DRIVER_V` (`:523`) or the matching
+   `SRC_DRIVER_*` group (H `:527`, JET `:531`, VFH `:535`, VHJ `:539`).
+2. `NNLOJET.mk`: add `$(BASE)/src/process/<DIR>` to `PROCESSDIR`
+   (models: `:22`, `:30`), plus the src-level subtraction files in
+   `SUBTRACTION_<PROC>`/`MATRIX_<PROC>`.
+3. `autoAddFortran.py` automates part of this but review its output
+   (see add-process-to-driver).
+
+## Step 5 — core name_proc case lists
+
+`name_proc` is the UPPERCASED runcard process name
+(`driver/core/Process.f90:221`). The new name must be added to every
+core `select case (name_proc)` that applies. Known sites, each with a
+model `"Z"`/`"ZJ"` entry — grep for an analogous process rather than
+trusting the line numbers:
+
+- `Process.f90:640` (and the beam/collider select at `:224`)
+- `Observables.f90:153` (observable binding)
+- `Jets.f90:464`
+- `Channels.f90:178` and `:613`
+- `MultiRun.f90:287`
+- `Run.f90:303`
+- `MiNLO.f90:158`
+- `LIPS.f90:55-61` (name-prefix if-chain, not a select)
+
+**This step exists because the failure is SILENT**: `Process.f90:238`
+has a `case default` giving `beam1=beam2=pid_p, nPDFs=2` — a process
+missing from these lists still compiles and runs, quietly taking
+default beams/frames/jet algorithms. Nothing errors; the physics is
+just wrong.
+
+Then build with a full `make -j` in `driver/` — adding files or new
+`use` statements invalidates the fast-rebuild path (skipdepend), which
+must never be used here (see fast-rebuild skill).
 
 Validation of the linking beyond compilation: run-layer-check verifies
 the integrated-counterterm bookkeeping symbolically; spike tests
