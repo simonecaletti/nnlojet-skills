@@ -43,8 +43,21 @@ maple makefortRV -Diprocess=<N>       # all *T / *TNLO files
 ```
 
 - Output: `src/process/<DIR>/auto<name>.f` (dated header
-  `generated using makefortRR on ...`). The generator loops over ALL terms
-  of the process, not just the edited one.
+  `generated using makefortRR on ...`). The generator loops over ALL
+  terms of the process, not just the edited one — and the current
+  generator emits different boilerplate from what is checked in
+  (`double precision` instead of `dimension` for the partons/facnorm
+  arrays; `set_flav_perm`/`unset_flav_perm` moved inside the
+  `if(ipass.eq.1)` block), so EVERY auto*.f of the process shows as
+  modified even when only one changed semantically (all ten epem files
+  rewrote for a one-file edit). **Back up `src/process/<DIR>/` before
+  generating; afterwards restore the files you did not intend to touch**,
+  so the working tree shows only your real change.
+- Verify the edit changed only what you intended: diff the PHYSICS lines
+  against the backup — extract the lines matching
+  `set_map|wt\(|getqcdnorm|set_flav_perm|\* FF:` from old and new, strip
+  leading whitespace, and diff those. That isolates the semantic content
+  from the boilerplate drift above.
 - Watch stdout for `ERROR: <file>.map > term #N > invalid ME argument` or
   `left-over list` — the primary symptom of a malformed .map; go back to
   write-subtraction.

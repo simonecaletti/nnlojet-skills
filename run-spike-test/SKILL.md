@@ -53,21 +53,46 @@ Traps:
   automatically, older ones don't — add to FFLAGS if compilation fails on
   argument mismatch.
 - Some makefiles (DISWp) require `lhapdf-config` on PATH.
+- Parallel `make -jN` can die with "Fatal Error: Cannot open module file
+  'dis_mod.mod'" — a module-dependency race, not a real error. Re-run make
+  (may take two passes) or use `-j1`.
 
 ## Run — iplot=2 only
 
+**Determine the argument convention FIRST — it is not uniform.** Of the
+159 check*.f programs: 113 take NO argument (the channel is the
+hard-coded `do itype=<n>,<n>` loop — selecting a channel means editing
+that line and REBUILDING; e.g. `epem/check5to3.f` ~line 79); 36 take one
+argument, CHANNEL (e.g. `DIS/check5to3.f`, `epemZH2bb/check4to2.f`);
+5 take two, IORDER CHANNEL (the loop/RV programs, e.g.
+`epem/check4to3loop.f`); 5 are special-purpose, not channel-driven
+(`GGJfc/check_njet.f`, `Z/check4to2.f`, ...). The convention varies
+WITHIN a process dir (`epem/check5to3.f` none, `epem/check4to3loop.f`
+two) — it cannot be inferred from the process or the filename. Detect
+it: run the binary bare — every argument-taking program prints a usage
+line and stops, harmlessly; or grep the source for `getarg` (no hits =
+hard-coded; then grep `do itype=` for the line to edit).
+
 `iplot` is hard-coded in the check source. Ensure it is set to `2`
-(prints ~10 points per limit to stdout) before building:
+(prints a few points per limit to stdout) before building:
 
 ```fortran
-      iplot = 2           ! print 10 events in each limit
+      iplot = 2           ! print events in each limit
 ```
 
-Then:
+Then (one-argument programs; adapt per the convention above):
 
 ```bash
 OMP_NUM_THREADS=1 ./check4to2 <CHANNEL>
 ```
+
+**iplot=2 defaults often cannot show the pass criterion.** E.g.
+`epem/check5to3.f` sets `ipoint=5, ilow=3, iup=3` for iplot=2 — only
+the DEEPEST x, 5 points: no trend visible. Cheap fix, still entirely
+within iplot=2: temporarily set `ilow=1` (prints all three x values)
+and raise `ipoint` (~100; 100 points × 3 x values ran in ~3 s), rebuild,
+run — then RESTORE both values. This is NOT iplot=1 and carries none of
+its cost.
 
 Do NOT run with `iplot=1` on your own initiative: it histograms ~1000
 accepted points per (mode, x) over all modes — hours per channel — and
@@ -98,6 +123,24 @@ For each mode, stdout shows per point: `wt1` (full ME), `wt2`
     `doc/process/VFH/texfiles/spikesAndRotation.tex`), not necessarily a
     wrong .map;
   - NaN counters → broken momentum mapping.
+
+### Before calling a limit failed
+
+- **Weight every limit by its |wt1| magnitude.** Many printed limit
+  labels are simply not singular for the channel under test (e.g.
+  "Double soft - 3,6" = two quarks soft in a four-quark channel); their
+  |wt1| sits orders of magnitude below the genuinely singular limits
+  (1e-2 vs 1e10 is typical) and their ratios are meaningless noise.
+  Judge only limits with significant weight.
+- **Use the MEDIAN across points, not the max deviation.** The
+  azimuthal-rotation warning above, made operational: in epem C1g0 the
+  "Soft collinear" limits hold a ~3% point-to-point spread at every x
+  while the median is 1.0000 and the mean is within a few ×1e-3 — that
+  is a pass. Max-deviation would have flagged all four as failures.
+- **Run a sibling channel whose .map is untouched as a control** (epem:
+  itype=5, Ct1g0, next to C1g0's itype=4). Artefacts common to both
+  channels are harness/kinematics, not a defect in the term you edited —
+  the fastest way to separate the two.
 
 ## On failure
 

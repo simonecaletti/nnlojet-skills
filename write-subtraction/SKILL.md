@@ -71,7 +71,18 @@ Every line of `XX` is:
   `[i,j]` = single mapping, `[[i,j],[j,k]]` = iterated mapping.
 - **Jet functions** `JETnm(args)`: `n` = resolved jets, `m` = final-state
   partons in the reduced kinematics (`JET00 ... JET33`). Args must be the
-  mapped momenta of the reduced ME.
+  correct mapped momenta of the reduced ME, but their ORDER is free — the
+  momentum list in the generated `set_map` call is canonical (i1, i2,
+  then the cluster representatives in cluster order, then the remaining
+  spectators in ascending index order) and is derived from the antenna
+  cluster, not from the JET arguments (`Ct1g0ZepemS.map` line a2: the
+  JET34 order differs from the emitted set_map list). Do not agonise
+  over JET ordering.
+- **Which mapped momenta a cluster produces**: a 3-parton antenna
+  cluster (a,b,c) yields `[a,b]` and `[b,c]`; a 4-parton cluster
+  (a,b,c,d) yields `[a,b,c]` and `[d,c,b]`. Bracket contents are
+  order-insensitive up to reversal (`[k,i,j]` ≡ `[j,i,k]`). Use these to
+  write the reduced-ME and JET arguments.
 - **`aN`** is a sequential line label: `a1, a2, a3, ...` with NO gaps (the
   checker aborts on gaps). Each `aN` becomes one `wt(N)` slot and one
   independent mapping/jet block in the generated Fortran — numbering is
