@@ -19,7 +19,9 @@ cannot see. In scheme language it proves, per process, the arrow
 structure of Fig. 3 of arXiv:1301.4693: each dσ^S block reappearing in
 dσ^T/dσ^U as `J21`/`J22` integrated dipoles (see
 antennae-naming-convention). Complementary to spike tests
-(run-spike-test), which validate the unintegrated terms numerically.
+(run-spike-test), which validate the unintegrated terms numerically, and
+to pole checks (run-pole-check), which validate the integrated terms
+numerically and pointwise.
 
 ## Requirements
 

@@ -37,6 +37,9 @@ configurations that are not limits at all (see classification below).
   (`get_ss*` soft, `get_sco*` collinear).
 - No test exists for this process/contribution → **write-spike-test**
   skill.
+- VV/U has no unresolved radiation and CANNOT be spike-tested — its
+  numerical validation is the pole check (**run-pole-check** skill),
+  which also covers the ε-poles of V and RV.
 
 ## Build
 
