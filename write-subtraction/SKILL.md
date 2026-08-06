@@ -134,19 +134,30 @@ The line list is DERIVED from the full ME, not invented:
    the reduced ME is the (n−1)-parton amplitude of the resulting
    flavour content (find its name via me-naming-convention). JET
    arguments = the reduced final-state momenta (order free).
-4. **RR assembly order** (worked example: `Ct1g0ZepemS.map`):
-   (a) `X30 × M_{n-1}` for each single-unresolved cluster (its a1–a8);
-   (b) `X40 × M_{n-2}` for each colour-connected double-unresolved
-   cluster (a9, `B40`);
-   (c) MINUS the iterated `X30 × X30 × M_{n-2}` overlap between (a) and
-   (b), with ±1/2 symmetry factors where clusters are symmetric
-   (a10–a21);
-   (d) wide-angle soft corrections as SS-difference blocks multiplying
-   `X30 × M` lines: `(SFF(..)+SFF(..)−SFF(..)−SFF(..))*E30FF(..)*M`
-   (a22, a27).
-   RV: minus the integrated counterparts (`J21`) of the R-term's
-   antennae × `M_n`, plus `X30 × M^{1-loop}`, plus the
-   `(X31 + X30·J21)` closures.
+4. **RR assembly by block** (the dσ^S decomposition of Fig. 3,
+   arXiv:1301.4693; worked example: `Ct1g0ZepemS.map`). For each PAIR of
+   unresolved partons, its COLOUR CONNECTION decides the block:
+   - **S,a** — `X30 × M_{n-1}` for each single-unresolved cluster
+     (a1–a8 there);
+   - **S,b1** — COLOUR-CONNECTED pair (the two unresolved partons share
+     a radiator between them): one `X40 × M_{n-2}` (a9, `B40`);
+   - **S,b2** — MINUS the iterated `X30 × X30 × M_{n-2}` overlap
+     between S,a and S,b1, with ±1/2 symmetry factors where clusters
+     are symmetric (a10–a21);
+   - **S,c** — ALMOST-COLOUR-CONNECTED pair (separated by one hard
+     radiator): the iterated products need large-angle soft
+     corrections, written as SS-difference blocks multiplying
+     `X30 × M` lines: `(SFF(..)+SFF(..)−SFF(..)−SFF(..))*E30FF(..)*M`
+     (a22, a27);
+   - **S,d** — COLOUR-UNCONNECTED pair (two disjoint dipoles): a plain
+     product `X30 × X30 × M_{n-2}` for the double collinear of distinct
+     radiator pairs — nothing genuinely new at NNLO, but the lines must
+     be there.
+   RV (dσ^T): **T,a** = minus the integrated counterparts (`J21`) of
+   the R-term's antennae × `M_n` (cancels the RV poles); **T,b** =
+   `X30 × M^{1-loop}` plus the `(X31 + X30·J21)` closures; **T,c** =
+   the integrated S,c. Every S block reappears integrated in T or U —
+   the arrow structure that run-layer-check verifies.
 5. **Completeness check before generating**: every limit passing the
    reduced-Born rule must be covered by at least one line. The check
    program's mode list (`stitle`) is a superset checklist — apply the
@@ -156,6 +167,10 @@ The line list is DERIVED from the full ME, not invented:
    `autoRRX40/M0/SS.map` split shows your classification back to you.
 
 ## Structural patterns per contribution type
+
+(X30/X31/X40 here and above are generic CLASSES — X is a wildcard for
+the concrete antenna letter A/D/E/F/G...; no antenna is literally named
+X30. See antennae-naming-convention.)
 
 - **`*SNLO` (R)**: lines of `X30 × M_{n-1} × JET × aN`, one per
   single-unresolved limit.

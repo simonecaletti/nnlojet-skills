@@ -2,11 +2,15 @@
 name: antennae-naming-convention
 description: >
   Decode or construct NNLOJET antenna-function names (A30FF, d30FF, qA30IF,
-  qqA30II, At40, A31FF, J21QGFF, ...) and map each antenna to the infrared
-  limits it subtracts. Use for questions like "what is d30FF", "which
-  antenna covers the 5||6 collinear limit", "what does the IF suffix mean",
-  "what is J21", or when interpreting spike-test failures and layer-check
-  residues. Read-only reference — modify nothing.
+  qqA30II, At40, A31FF, J21QGFF, ...), map each antenna to the infrared
+  limits it subtracts, and explain the NNLO antenna-scheme structure: the
+  dsigma^S/T/U blocks (S,a...S,d; T,a...T,c; U,A/B/C), colour-connected vs
+  almost- vs un-connected pairs, and the J2 integrated dipoles / Catani I
+  operators. Use for questions like "what is d30FF", "which antenna covers
+  the 5||6 collinear limit", "what is J21 / J2^(1)", "what does S,b2 mean",
+  "colour-connected vs unconnected", "what cancels the VV poles", or when
+  interpreting spike-test failures and layer-check residues. Read-only
+  reference — modify nothing.
 ---
 
 # NNLOJET antenna naming and limit coverage
@@ -22,6 +26,14 @@ Fortran implementations: `src/X30` (tree 3-parton), `src/X31` (one-loop
 ```
 [crossed partons] <Letter> [t|tt] <30|31|40> <FF|IF|FI|II> [_g|_q|_frag|GtoQ]
 ```
+
+**"X" is a WILDCARD, not an antenna.** The generic classes X30 / X31 /
+X40 used throughout (papers, these skills, and the repo's directory
+names `src/X30`, `src/X31`, `src/X40`, `src/X30int`,
+`autoRRX40.map`, `calX30`, ...) mean "any tree 3-parton / one-loop
+3-parton / tree 4-parton antenna". No antenna is literally named X30 —
+concrete tokens always carry a letter: `A30FF`, `d30FF`, `E30FF`,
+`B40`, `A31FF`, ...
 
 - **`30`/`31`/`40`** = tree 3-parton (single unresolved) / one-loop
   3-parton (RV layer) / tree 4-parton (double unresolved).
@@ -77,19 +89,43 @@ the suspect subtraction lines are those whose antenna covers L with
 the unresolved parton(s) of L among its arguments (see
 run-spike-test / write-subtraction).
 
-## Soft functions and integrated counterparts
+## The NNLO scheme map (Fig. 3 of arXiv:1301.4693)
 
-- `SSset = {SFF, SIF, SFI, SII}` — soft eikonal functions, summed
-  inside RR/RV terms (`src/X30/SS*.f`).
-- **Every unintegrated antenna has an integrated counterpart** added
-  back in the virtual layers: X30 ↔ `J21*` integrated dipoles
-  (`J21QGFF`, `J21GQFI`, ..., definitions in
-  `maple/form/common/J21.map`), X40/X31 ↔ `J22*`. Integrated antennae
-  live in `src/X30int/<config>/`. This X30↔J21 bookkeeping — with
-  crossings and symmetry factors — is exactly what run-layer-check
-  verifies; its failure residues are printed in this language
-  (leftover `calX30`/`J21` symbols name the missing or mis-factored
-  integrated antenna).
+The whole NNLO subtraction is three layers of blocks; every unintegrated
+block reappears integrated one layer up (the figure's arrows):
+
+- **dσ^S (RR)**: S,a = `X30·M_{n+1}` (single-unresolved); S,b1 =
+  `X40·M_n` (colour-connected double-unresolved); S,b2 =
+  `−X30·X30·M_n` (iterated overlap removal); S,c = large-angle soft
+  SS-difference blocks (almost-colour-connected pairs); S,d = disjoint
+  `X30×X30` products (colour-unconnected pairs).
+- **dσ^T (RV)**: T,a = `−J2^(1)·M_{n+1}` (cancels the RV poles); T,b =
+  `X30·M^(1)` and `(X31 + X30·J21)·M_n` (RV's own unresolved limits);
+  T,c = the integrated S,c.
+- **dσ^U (VV)**: U,A = `−J2^(1)·M^(1)`; U,B = `−½ J2^(1)⊗J2^(1)·M`;
+  U,C = `−J2^(2)·M` — pure integrated dipoles cancelling the two-loop
+  poles.
+
+**Colour connection of an RR pair decides its block** (the criterion,
+hep-ph/0505111): colour-connected (radiators shared between the two
+unresolved partons) → one X40 (S,b1); almost-colour-connected
+(separated by a single hard radiator) → iterated X30×X30 + SS soft
+correction (S,b2+S,c); colour-unconnected (disjoint dipoles) → plain
+product (S,d). At subleading colour the classification applies per
+colour structure — the tilde antennae implement the 1/nc tower
+(full-colour dijets: arXiv:1310.3993).
+
+**Integrated objects**: `SSset = {SFF, SIF, SFI, SII}` — soft eikonal
+functions (`src/X30/SS*.f`). Every unintegrated antenna has an
+integrated counterpart in the virtual layers: X30 ↔ `J21*` integrated
+dipoles (`J21QGFF`, `J21GQFI`, ..., `maple/form/common/J21.map`),
+X40/X31 ↔ `J22*`; assembled into the `J2^(ℓ)` operators, which absorb
+the mass factorisation for initial states and are related to Catani's
+I operators. Implementations: `src/X30int/<config>/`. This bookkeeping
+— crossings and symmetry factors included — is exactly the Fig.-3
+arrow structure that run-layer-check verifies per process; its failure
+residues are printed in this language (leftover `calX30`/`J21` symbols
+name the missing or mis-factored integrated antenna).
 
 ## Fortran level
 
@@ -114,3 +150,16 @@ configuration for another.
 
 Related: subtraction-term structure (which lines carry which antenna)
 → write-subtraction; ME names → me-naming-convention.
+
+## References
+
+- hep-ph/0505111 — Gehrmann-De Ridder, Gehrmann, Glover: "Antenna
+  Subtraction at NNLO" — defines the antenna functions and the
+  colour-connection classes.
+- 0711.4711 — e+e- event shapes at NNLO — first full-scale
+  application (the epem processes in this repo).
+- 1301.4693 — Currie, Glover, Wells: "Infrared Structure at NNLO" —
+  the J2^(ℓ) integrated-dipole formulation; Fig. 3 is the scheme map
+  above.
+- 1310.3993 — full-colour NNLO gluonic dijets — subleading-colour /
+  tilde-antenna structures in practice.

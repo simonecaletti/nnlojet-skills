@@ -15,8 +15,11 @@ The layer check verifies symbolically that every unintegrated antenna in
 the real layers (SNLO, S) has its correctly-integrated counterpart in the
 virtual layers (TNLO, T, U) with the right crossing, symmetry, and colour
 factors — including the finite flavour-changing dipoles that pole checks
-cannot see. It is complementary to spike tests (run-spike-test), which
-validate the unintegrated terms numerically.
+cannot see. In scheme language it proves, per process, the arrow
+structure of Fig. 3 of arXiv:1301.4693: each dσ^S block reappearing in
+dσ^T/dσ^U as `J21`/`J22` integrated dipoles (see
+antennae-naming-convention). Complementary to spike tests
+(run-spike-test), which validate the unintegrated terms numerically.
 
 ## Requirements
 
