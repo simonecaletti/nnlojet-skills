@@ -61,6 +61,15 @@ maple makefortRV -Diprocess=<N>       # all *T / *TNLO files
 - Watch stdout for `ERROR: <file>.map > term #N > invalid ME argument` or
   `left-over list` — the primary symptom of a malformed .map; go back to
   write-subtraction.
+- **All three generators read `maple/FLAVlist<iprocessname>.map`**
+  (makefortRR:105, makefortRV:104, makeformVV:97; iprocessname from
+  `iprocess.map`) to assign the flavour blocks (`set_flav_perm`) of the
+  generated Fortran. Missing file → the maple `read` aborts generation;
+  stale/wrong content → silently wrong flavour blocks. It is itself
+  GENERATED: refresh with `maple makeflavlist -Diprocess=<N>` (same
+  backup-and-diff discipline as above). Its entries
+  `[[incoming], FullME, [reduced MEs]]` are also the authoring-time
+  reduced-ME lookup — see write-subtraction.
 - **VV is two-stage and needs FORM**: `maple makeformVV -Diprocess=<N>`
   writes `auto*.frm` into the process dir plus a shell script
   `makeformVV-update`; running that script executes `form auto*.frm`,

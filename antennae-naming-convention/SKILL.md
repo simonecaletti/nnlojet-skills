@@ -49,6 +49,34 @@ concrete tokens always carry a letter: `A30FF`, `d30FF`, `E30FF`,
 - **Suffixes**: `_g`/`_q` = fragmentation variants, `GtoQ` = g→q
   conversion variants (`ga30IFGtoQ`).
 
+## Crossing between configurations (FF ↔ IF ↔ FI ↔ II)
+
+Crossing radiators to the initial state maps an antenna to its
+IF/FI/II variant; the crossed partons are named by the leading
+lowercase letters. Observed correspondences (from `notation.map` and
+usage, e.g. `DIS/qC1g0ZDISS.map`):
+
+| FF | IF (one crossed) | II (two crossed) |
+|---|---|---|
+| `A30FF` | `qA30IF`, `gA30IF` | `qqA30II`, `qgA30II`, `gqA30II` |
+| `D30FF` / `d30FF` | `qD30IF`, `gD30IF`, `gd30IF` | `qgD30II`, `ggD30II`, ... |
+| `E30FF` | `qE30IF`, `qpE30IF` | `qpqpE30II`, `qqpE30II`, ... |
+| `G30FF` | `qpG30IF`, `gG30IF` | `qqG30II`, `gqG30II`, ... |
+| `F30FF` | `F30IF`, `gf30IF` | `F30II`, `ggF30II` |
+
+plus conversion variants (`ga30IFgtoq`, `gd30IFGtoQ`, ...). FI mirrors
+IF. These are DISTINCT functions with distinct integrated counterparts
+— never substitute configurations.
+
+**The Full-composite rule for crossed legs**: an initial-state cluster
+is a pure momentum rescaling, written `[1]`/`[[1]]` in the maple files
+— unambiguous. Therefore a Full composite antenna (`E40`, `D30FF`) is
+safe on a line whose cluster involves a crossed leg, but MUST be split
+into its halves (`E40a`+`E40b`, `d30FF`+`d30FF`) on all-final-state
+clusters, because the halves carry different momentum mappings. This
+is the central trap when deriving a term by crossing an existing one —
+procedure and symptoms in write-subtraction.
+
 ## Letter ↔ radiators ↔ limits subtracted
 
 The letter encodes the hard-radiator pair and the unresolved

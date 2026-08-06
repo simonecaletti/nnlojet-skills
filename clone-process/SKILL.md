@@ -11,6 +11,12 @@ description: >
 
 # Cloning a process
 
+Scope: PROCESS-level cloning — folders, maps, registration numbers.
+Deriving a single subtraction TERM by crossing another process's
+`.map` (un-crossing legs, antenna renames, Full→split) is a different
+job: write-subtraction, section "Deriving a term by crossing an
+existing one".
+
 Prior art in-repo: `maple/process/GG/shell/GGfromZ.sh` (generates GG
 subtraction terms from Z's), and the `DYtest` clone of `Z` in this tree
 (makeproc iprocess 127, iprocess.map 50) — use DYtest as the worked
