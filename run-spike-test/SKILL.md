@@ -14,8 +14,9 @@ description: >
 A spike test evaluates, for phase-space points driven into an infrared
 limit, the ratio R = fullME / subtraction. Pass criterion: **the ratio
 approaches 1 asymptotically as the infrared parameter x decreases
-(x(1) > x(2) > x(3)), for many points in the phase space, and for ALL
-limits of the channel.**
+(x(1) > x(2) > x(3)), for many points in the phase space, for every
+GENUINE limit of the channel** — the mode lists also probe
+configurations that are not limits at all (see classification below).
 
 ## Locate the test
 
@@ -89,10 +90,13 @@ OMP_NUM_THREADS=1 ./check4to2 <CHANNEL>
 **iplot=2 defaults often cannot show the pass criterion.** E.g.
 `epem/check5to3.f` sets `ipoint=5, ilow=3, iup=3` for iplot=2 — only
 the DEEPEST x, 5 points: no trend visible. Cheap fix, still entirely
-within iplot=2: temporarily set `ilow=1` (prints all three x values)
-and raise `ipoint` (~100; 100 points × 3 x values ran in ~3 s), rebuild,
-run — then RESTORE both values. This is NOT iplot=1 and carries none of
-its cost.
+within iplot=2: temporarily set `ilow=1` (prints all three x values —
+also needed for the scaling-exponent classification below) and raise
+`ipoint` (~100; 100 points × 3 x values ran in ~3 s), rebuild, run —
+then RESTORE both values. This is NOT iplot=1 and carries none of its
+cost. Also check the MODE-loop bound: e.g. `check5to3.f` has
+`do mode=1,65`, silently skipping modes 66–80 — ALL the single-soft and
+single-collinear limits; raise it to cover them.
 
 Do NOT run with `iplot=1` on your own initiative: it histograms ~1000
 accepted points per (mode, x) over all modes — hours per channel — and
@@ -113,34 +117,64 @@ For each mode, stdout shows per point: `wt1` (full ME), `wt2`
   by name (e.g. "channel 5, limit 5||6 collinear"). That is the actionable
   output: the failing limit identifies which subtraction lines are
   suspect (limit → antenna mapping: antennae-naming-convention skill).
-- Symptom guide:
+- Symptom guide (apply ONLY to modes classified GENUINE):
   - ratio → constant ≠ 1 in a limit → wrong normalisation / colour factor
     on the covering line;
-  - ratio diverges or → 0 in a limit → missing or wrong antenna for that
-    limit, or wrong mapped arguments;
+  - ratio diverges or → 0 in a GENUINE limit → missing or wrong antenna
+    for that limit, or wrong mapped arguments (in a dead mode, rat → 0
+    is meaningless — see classification);
   - ratio oscillates around 1 without narrowing in a g→gg or g→qqb
     collinear limit → azimuthal-rotation issue (see
     `doc/process/VFH/texfiles/spikesAndRotation.tex`), not necessarily a
     wrong .map;
   - NaN counters → broken momentum mapping.
 
-### Before calling a limit failed
+### Classify every mode BEFORE reading ratios
 
-- **Weight every limit by its |wt1| magnitude.** Many printed limit
-  labels are simply not singular for the channel under test (e.g.
-  "Double soft - 3,6" = two quarks soft in a four-quark channel); their
-  |wt1| sits orders of magnitude below the genuinely singular limits
-  (1e-2 vs 1e10 is typical) and their ratios are meaningless noise.
-  Judge only limits with significant weight.
-- **Use the MEDIAN across points, not the max deviation.** The
-  azimuthal-rotation warning above, made operational: in epem C1g0 the
-  "Soft collinear" limits hold a ~3% point-to-point spread at every x
-  while the median is 1.0000 and the mean is within a few ×1e-3 — that
-  is a pass. Max-deviation would have flagged all four as failures.
-- **Run a sibling channel whose .map is untouched as a control** (epem:
-  itype=5, Ct1g0, next to C1g0's itype=4). Artefacts common to both
-  channels are harness/kinematics, not a defect in the term you edited —
-  the fastest way to separate the two.
+(Empirically validated on 240 channel×mode combinations, epem
+C1g0/Ct1g0/B3g0 — 240/240 with the rule below.)
+
+1. **Decode the channel species**: match the `test(itype)` call's
+   argument order against the ME's particle content in
+   `driver/maple/<PROC>.map` (e.g. C1g0Zepem(i4,i5,i6,i7,i3,...) vs
+   `[qb,g,Q,Qb,q,...]` → 5=gluon, 3,4 and 6,7 = qq̄ pairs).
+2. **Reduced-Born rule** — a mode is GENUINE iff, after (a) replacing
+   every collinear cluster by its parent parton, where a cluster is
+   valid iff its NET FLAVOUR is a single parton (q∥g, g∥g, same-flavour
+   q∥q̄ pass; cross-flavour q∥Q fails), and (b) deleting every soft
+   parton — gluons, or a same-flavour q q̄ PAIR going soft together —
+   the remaining state is a legal Born for the process. Two traps this
+   rule fixes:
+   - composites are NOT decomposed pairwise: {q,q̄,Q} is a genuine
+     triple-collinear cluster (parent Q) although its q∥Q pair is dead;
+   - all-components-genuine is NOT sufficient: in B3g0 (q̄ggg q), q̄∥q
+     is species-valid but collapsing it leaves ggg — no Born → dead;
+     likewise a soft same-flavour q q̄ pair is genuine ONLY if deleting
+     it leaves a Born (C1g0 "3,4" genuine, B3g0 "3,7" not).
+   - Do NOT use colour adjacency in the argument list: check programs
+     sum over colour orderings, so non-adjacent pairs are fully
+     connected (B3g0 3/5 is genuine).
+3. **Verdict per mode from the scaling exponent, not |wt1| or the
+   median.** With `ilow=1` (three x values) fit
+   p = −Δlog10|wt1|/Δlog10 x: it comes out integer-quantized. Genuine
+   modes reach the family maximum (double soft 4, soft-collinear 3,
+   triple/double collinear 2, single soft 2, single collinear 1);
+   p ≤ p_genuine−1 = sub-singular or pointless, with no channel
+   dependence. |wt1| gaps are clean (≥4 decades) only WITHIN a family —
+   never compare across families, their x-sets differ.
+4. **median(rat)→1 is NOT sufficient**: sub-singular modes routinely
+   read 1.0000 with tiny spread because a lower, correctly-subtracted
+   limit dominates — a false pass that tests nothing. Conversely
+   rat→0 or O(10) noise on a DEAD mode is normal (the subtraction's
+   mapping just doesn't apply there), not a failure.
+5. **Use the MEDIAN across points, not the max deviation**, for the
+   genuine modes: azimuthal-correlation terms leave a few-% point
+   spread at every x while the median sits at 1.0000 — that is a pass;
+   single outlier points (even −0.04 among 100 points at median
+   1.0000) do not fail a mode.
+6. **Run a sibling channel whose .map is untouched as a control**
+   (epem: Ct1g0 next to C1g0). Artefacts common to both are
+   harness/kinematics, not your term.
 
 ## On failure
 

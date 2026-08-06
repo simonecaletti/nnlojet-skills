@@ -61,9 +61,13 @@ unresolved partons (`A40` = qq̄ + gg, `D40` = qg + gg, `B40`/`C40` =
 secondary quark pairs on a quark line, `F40`/`G40`/`H40` = gluonic /
 multi-pair; `At40` etc. subleading colour). They cover the
 double-unresolved limits: double soft, triple collinear,
-soft+collinear, double collinear. For the exact per-letter content
-check `maple/notation.pdf` or the header of the `src/X40` file — do
-not guess when assigning a specific double limit.
+soft+collinear, double collinear. Note the E30/G30 "no soft" rule is a
+single-unresolved statement — a same-flavour qq̄ PAIR does have a
+double-soft limit at X40 level (B40-type), provided deleting the pair
+leaves a legal Born (reduced-Born rule, see run-spike-test). For the
+exact per-letter content check `maple/notation.pdf` or the header of
+the `src/X40` file — do not guess when assigning a specific double
+limit.
 
 `X31` (one-loop 3-parton, `A31FF`, ...) cover the same single limits
 as their X30 partner at one loop; they appear only in RV (`*T`) terms.

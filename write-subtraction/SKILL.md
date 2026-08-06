@@ -95,15 +95,32 @@ Optional: `colflag:=true:` (groups several reduced MEs under one antenna),
 
 The line list is DERIVED from the full ME, not invented:
 
-1. **Enumerate the limits of the full ME.** Single-unresolved (R/SNLO):
-   every gluon soft, plus each collinear splitting (q∥g, g∥g, g→qq̄)
-   between colour-connected partons. Colour connection is the organising
-   principle: for colour-ordered B-type amplitudes it is adjacency in
-   the argument list; for multi-quark-line (C/D/E/F/G) and
-   subleading-colour structures read the connections off the analogous
-   existing `.map` — do not guess. RR adds the double-unresolved set:
-   double soft, triple collinear, soft+collinear, double collinear
-   between disjoint pairs.
+1. **Enumerate the limits of the full ME — by the reduced-Born rule**
+   (empirically validated, 240/240 mode classifications on epem
+   C1g0/Ct1g0/B3g0). A configuration is a genuine limit iff, after
+   replacing every collinear cluster by its parent parton (a cluster is
+   valid iff its NET FLAVOUR is a single parton: q∥g, g∥g, same-flavour
+   q∥q̄; cross-flavour q∥Q is dead) and deleting every soft parton
+   (gluons; or a same-flavour q q̄ PAIR going soft together), what
+   remains is a legal Born state of the process. Consequences:
+   - a SINGLE quark never goes soft; g→qq̄ splittings have a collinear
+     limit but no soft one;
+   - a same-flavour qq̄ pair has a double-soft limit ONLY if deleting
+     it leaves a Born (in C1g0 both qq̄ pairs qualify; in B3g0 deleting
+     q̄q leaves ggg — no Born, dead);
+   - composites are NOT decomposed pairwise: {q,q̄,Q} is a genuine
+     triple-collinear cluster (parent Q) although its q∥Q pair is
+     dead, and conversely two individually-genuine pairs can combine
+     into a dead double limit if collapsing both breaks the Born;
+   - do not enumerate from colour adjacency in the argument list —
+     colour-summed MEs connect non-adjacent partons. Adjacency only
+     guides which radiator pair an individual (colour-ordered) LINE
+     uses; for those, read the analogous existing `.map`.
+   Write no line for a non-limit — a spurious subtraction is as wrong
+   as a missing one (it survives integration un-cancelled). Note the
+   spike test will NOT flag it directly: on dead modes ratio→0 or
+   noise is normal harness behaviour either way; the layer check and
+   integration are where a spurious term shows.
 2. **One antenna per limit CLUSTER, not per limit.** Pick the antenna
    whose two hard radiators are the neighbours of the unresolved
    parton(s) and whose species match (antennae-naming-convention);
@@ -130,9 +147,12 @@ The line list is DERIVED from the full ME, not invented:
    RV: minus the integrated counterparts (`J21`) of the R-term's
    antennae × `M_n`, plus `X30 × M^{1-loop}`, plus the
    `(X31 + X30·J21)` closures.
-5. **Completeness check before generating**: every mode of the
-   process's check program (its `stitle` list is the limit checklist)
-   must be covered by at least one line; `makeRRcheck`'s
+5. **Completeness check before generating**: every limit passing the
+   reduced-Born rule must be covered by at least one line. The check
+   program's mode list (`stitle`) is a superset checklist — apply the
+   rule to classify each mode (run-spike-test carries the same rule
+   plus the empirical verdict via the |wt1| scaling exponent), then
+   demand coverage only for the genuine ones. `makeRRcheck`'s
    `autoRRX40/M0/SS.map` split shows your classification back to you.
 
 ## Structural patterns per contribution type
