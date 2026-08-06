@@ -91,6 +91,50 @@ Every line of `XX` is:
 Optional: `colflag:=true:` (groups several reduced MEs under one antenna),
 `XX:=expand( ... ):` in some RV files.
 
+## Building the lines: from the ME's infrared limits
+
+The line list is DERIVED from the full ME, not invented:
+
+1. **Enumerate the limits of the full ME.** Single-unresolved (R/SNLO):
+   every gluon soft, plus each collinear splitting (q∥g, g∥g, g→qq̄)
+   between colour-connected partons. Colour connection is the organising
+   principle: for colour-ordered B-type amplitudes it is adjacency in
+   the argument list; for multi-quark-line (C/D/E/F/G) and
+   subleading-colour structures read the connections off the analogous
+   existing `.map` — do not guess. RR adds the double-unresolved set:
+   double soft, triple collinear, soft+collinear, double collinear
+   between disjoint pairs.
+2. **One antenna per limit CLUSTER, not per limit.** Pick the antenna
+   whose two hard radiators are the neighbours of the unresolved
+   parton(s) and whose species match (antennae-naming-convention);
+   arguments are (hard, unresolved, hard) — middle leg unresolved. One
+   `A30FF(a,b,c)` line covers b-soft AND both a∥b, b∥c collinear at
+   once; do not write separate lines per limit. Use sub-antennae
+   (`d30`, `f30`) where a full antenna would double-count limits shared
+   between overlapping clusters.
+3. **Build the reduced ME** from the cluster rules above: remove the
+   unresolved parton, substitute the mapped momenta for the radiators;
+   the reduced ME is the (n−1)-parton amplitude of the resulting
+   flavour content (find its name via me-naming-convention). JET
+   arguments = the reduced final-state momenta (order free).
+4. **RR assembly order** (worked example: `Ct1g0ZepemS.map`):
+   (a) `X30 × M_{n-1}` for each single-unresolved cluster (its a1–a8);
+   (b) `X40 × M_{n-2}` for each colour-connected double-unresolved
+   cluster (a9, `B40`);
+   (c) MINUS the iterated `X30 × X30 × M_{n-2}` overlap between (a) and
+   (b), with ±1/2 symmetry factors where clusters are symmetric
+   (a10–a21);
+   (d) wide-angle soft corrections as SS-difference blocks multiplying
+   `X30 × M` lines: `(SFF(..)+SFF(..)−SFF(..)−SFF(..))*E30FF(..)*M`
+   (a22, a27).
+   RV: minus the integrated counterparts (`J21`) of the R-term's
+   antennae × `M_n`, plus `X30 × M^{1-loop}`, plus the
+   `(X31 + X30·J21)` closures.
+5. **Completeness check before generating**: every mode of the
+   process's check program (its `stitle` list is the limit checklist)
+   must be covered by at least one line; `makeRRcheck`'s
+   `autoRRX40/M0/SS.map` split shows your classification back to you.
+
 ## Structural patterns per contribution type
 
 - **`*SNLO` (R)**: lines of `X30 × M_{n-1} × JET × aN`, one per
