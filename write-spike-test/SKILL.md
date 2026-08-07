@@ -51,14 +51,39 @@ standalone in the test (no duplicated subtraction sources). List every
 subtraction `auto*.f` under test in `LIBFILES`. Use a local `obj/`, not
 the main build's `$(BASE)/obj`.
 
+## Harness facts (each rediscovery costs a build cycle)
+
+- 7-particle limit generators live in `src/rambo/librambo.f` and mirror
+  the 6-particle ones argument-for-argument: `get_ss7 get_sco7 get_ds7
+  get_tc7 get_sc7 get_dc7`, plus `rotp7(i,j)` (π/2 rotation about the
+  collinear axis, for azimuthal averaging).
+- Init sequence: `init_proc`, `init_map`, `setSqrts_proc`,
+  `setScales`, `init_kin(nPartons,10)`; cuts via
+  `ecuts_epem(1,N,ipass)`-style calls; and `common/plotmode/iplot`
+  MUST be nonzero — otherwise `ecuts_*` in `src/core/null.f` prints
+  "incorrect version ... used for production" and `stop`s before any
+  output.
+- Mode counts, 5 final-state partons: 10 double soft + 10 triple
+  collinear + 30 soft-collinear + 15 double collinear + 5 single soft
+  + 10 single collinear = 80. GENERATE the mode blocks with a short
+  script — hand-writing 80 `case` blocks invites typos (this is how
+  the current `epem/check5to3.f` was produced).
+
 ## Check program structure
 
 From `check3to2.f`/`check4to2.f` (epemZH2bb), keep this skeleton:
 
-1. `call getarg(1,intype)` → CHANNEL integer; print usage if absent.
-2. `iplot` flag: `2` = print ~10 points per limit (default for Claude
-   runs), `1` = histogram + gnuplot output (user-driven; create the
-   output dir with `call system("mkdir -p "//sdir)`).
+1. **Give it a CLI**: `./check ITYPE [MODELO MODEHI] [IPOINT] [ILOW]`
+   via `getarg`, with defaults and a usage line when ITYPE is absent.
+   Hard-coded `do itype=n,n` / `do mode=1,65` loops mean every
+   narrowing of a test costs an edit+recompile+relink cycle — the
+   argument-driven rebuild made the debug loop several times faster.
+2. `iplot` flag: `2` = print per limit (default for Claude runs), `1`
+   = histogram + gnuplot output (user-driven; create the output dir
+   with `call system("mkdir -p "//sdir)`). Print SUMMARY STATISTICS
+   per mode — `n / max|ME| / median / mean / min / max` — not raw
+   event dumps; the max|ME| column is what separates genuine from
+   junk modes at a glance (run-spike-test).
 3. Mode loop — one `mode` per infrared limit, each defining:
    - `stitle`/`sname` (human-readable limit name — run-spike-test reports
      these, make them precise: `'"6 soft"'`, `'"5||6 collinear"'`);

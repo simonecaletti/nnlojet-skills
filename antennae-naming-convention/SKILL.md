@@ -68,6 +68,20 @@ plus conversion variants (`ga30IFgtoq`, `gd30IFGtoQ`, ...). FI mirrors
 IF. These are DISTINCT functions with distinct integrated counterparts
 — never substitute configurations.
 
+**Inferring an FF antenna's flavour content from its crossed names.**
+When source comments are silent, the crossed variants in
+`maple/notation.map` spell the legs out: e.g. `calgE40IF_q`,
+`calqpE40IF_q`, `calqbpE40IF_g` together imply E40 carries a gluon
+leg, a quark leg, and a primed (secondary) quark pair — each crossed
+name tells you which species was moved to the initial state. This
+deduction generalises to any antenna. For a definitive numerical
+check of flavour content, use probe-me-ir-structure.
+
+**Cluster rule source of truth**: the mapping
+`X40(A,B,C,D) → [A,B,C], [D,C,B]` (and the 3-parton
+`(a,b,c) → [a,b],[b,c]`) is implemented in `getpmapIK` in
+`maple/getpmap.map` (~line 146) — verify there, not in prose.
+
 **The Full-composite rule for crossed legs**: an initial-state cluster
 is a pure momentum rescaling, written `[1]`/`[[1]]` in the maple files
 — unambiguous. Therefore a Full composite antenna (`E40`, `D30FF`) is

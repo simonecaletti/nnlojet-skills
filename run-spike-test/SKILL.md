@@ -163,8 +163,11 @@ C1g0/Ct1g0/B3g0 — 240/240 with the rule below.)
    modes reach the family maximum (double soft 4, soft-collinear 3,
    triple/double collinear 2, single soft 2, single collinear 1);
    p ≤ p_genuine−1 = sub-singular or pointless, with no channel
-   dependence. |wt1| gaps are clean (≥4 decades) only WITHIN a family —
-   never compare across families, their x-sets differ.
+   dependence. Quick triage: SORT the modes of each family by max|ME|
+   — genuine and junk separate at a glance (gaps of 3–15 decades
+   observed). Within a family only: never compare |wt1| across
+   families, their x-sets differ (cross-family ranges overlap by ~9
+   decades).
 4. **median(rat)→1 is NOT sufficient**: sub-singular modes routinely
    read 1.0000 with tiny spread because a lower, correctly-subtracted
    limit dominates — a false pass that tests nothing. Conversely
