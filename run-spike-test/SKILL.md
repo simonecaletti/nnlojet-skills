@@ -3,7 +3,9 @@ name: run-spike-test
 description: >
   Build, run, and interpret NNLOJET spike tests (test/process/<PROC>/check*.f)
   that validate antenna-subtraction terms against the full matrix element in
-  infrared limits. Use whenever the user asks to spike-test a channel, check
+  infrared limits — including diagnosing WHICH block of a failing term is
+  responsible (mode→block shortlist, ratio-character reading, block
+  bisection). Use whenever the user asks to spike-test a channel, check
   a subtraction term, verify infrared cancellation, or after a subtraction
   term was edited/registered (write-subtraction / autogen-subtraction
   skills). Runs with iplot=2 only; iplot=1 plot production is user-driven.
@@ -112,7 +114,11 @@ it themselves, some don't).
 ## Interpret
 
 For each mode, stdout shows per point: `wt1` (full ME), `wt2`
-(subtraction), `rat`. Check across the three x values:
+(subtraction), `rat`. **The ratio is ME / subtraction** — `rat` BELOW 1
+means the term OVER-subtracts, above 1 means it UNDER-subtracts. This
+is easy to get backwards, and getting it backwards inverts every
+conclusion drawn from a run; re-check the direction before diagnosing.
+Check across the three x values:
 
 - **Pass**: `rat` → 1 for (essentially) all printed points, and the
   spread around 1 shrinks as x decreases. Must hold for every mode.
@@ -182,9 +188,41 @@ C1g0/Ct1g0/B3g0 — 240/240 with the rule below.)
    (epem: Ct1g0 next to C1g0). Artefacts common to both are
    harness/kinematics, not your term.
 
+## Mode → block diagnosis (when a genuine mode fails)
+
+Deciding WHICH block of the subtraction is responsible is a procedure,
+not an improvisation:
+
+1. **Shortlist by pole graph.** List the blocks whose antennae have a
+   pole in the failing mode's invariants (measure with the
+   probe-me-ir-structure pole scan if not already known). Only those
+   blocks can be responsible — everything else is finite there and
+   cannot move the ratio.
+2. **Read the ratio's CHARACTER, with the direction rule above:**
+   - stable median ≠ 1 with near-zero spread → a coefficient or
+     normalisation error on a covering line (below 1: something
+     subtracts too much — e.g. a spurious counterterm; above 1: too
+     little — e.g. a missing ±1/2 symmetry factor);
+   - wide spread with sign changes → a missing or misplaced pole (an
+     antenna singular where the ME is not, or vice versa);
+   - median near 1 with heavy tails → a mapping mismatch between a
+     block and its counterterm (they cancel in the strict limit but
+     not at finite x).
+3. **Bisect over blocks** — the standard method, not a last resort.
+   Compose the term from block subsets (write-subtraction's
+   `map_blocks.py`), regenerate+rebuild in one command
+   (autogen-subtraction's wrapper), rerun the failing mode only
+   (`./check ITYPE MODELO MODEHI` where the CLI supports it). Each
+   hypothesis is then one short test; in practice this is the
+   difference between testing two hypotheses and testing eight.
+4. Remember the harness caveats: on DEAD modes rat→0 or noise is
+   normal; a sub-singular mode reading 1.0000 is a false pass (see
+   classification above); a control channel with an untouched `.map`
+   separates harness artefacts from your term.
+
 ## On failure
 
 Report the failing channel + limit(s). If the user wants a fix, invoke
-the **write-subtraction** skill (the failing limit pinpoints the lines),
-then **autogen-subtraction**, then rerun here. Iterate until all limits
-pass.
+the **write-subtraction** skill (the failing limit plus the block
+diagnosis above pinpoint the lines), then **autogen-subtraction**, then
+rerun here. Iterate until all limits pass.

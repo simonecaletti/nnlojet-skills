@@ -2,24 +2,62 @@
 name: write-spike-test
 description: >
   Create a new NNLOJET spike test (check*.f program + makefile under
-  test/process/<PROC>/) for a process or contribution that has none. Use
-  when run-spike-test finds no test for the requested process/contribution,
-  or when the user asks to set up spike tests for a new process, a new
-  channel set, or a new contribution (R, RR, RV).
+  test/process/<PROC>/) for a process or contribution that has none, or
+  classify which of its modes are genuine limits. Use when run-spike-test
+  finds no test for the requested process/contribution, when the user asks
+  to set up spike tests for a new process, a new channel set, or a new
+  contribution (R, RR, RV), or to decide which modes of a channel are
+  genuine vs dead (reduced-Born rule).
 ---
 
 # Writing a new spike test
 
-Never start from scratch: copy the nearest existing test and adapt.
+**Generate, don't transcribe.** The mode table for n final-state
+partons is a mechanical function of n, and which modes are genuine is a
+mechanical function of the flavour content (reduced-Born rule).
+Hand-writing 80 case blocks — or hand-classifying 80 modes — is pure
+transcription and an easy place to introduce a silent indexing error.
 
-- **epemZH2bb** is the modern template (local `obj/`, self-`mkdir` output
-  dir, auto `-fallow-argument-mismatch`): lepton-initiated, FF limits
-  only.
-- **DISWp** is the reference for hadron-initiated processes with IF/II
-  limits (its `check5to3.f` enumerates 66 modes: double soft, triple
-  collinear FS/IS, soft+collinear, double collinear combinations) and for
-  the factored layout `test5to3<PROC>.f` / `tests5to3<PROC>.f` /
-  `stype5to3<PROC>.f`.
+```bash
+# which modes are genuine limits, which are dead (reduced-Born rule):
+python .claude/skills/write-spike-test/scripts/genuine_modes.py spec.json
+
+# the complete check program (mode table, azimuthal averaging on
+# gluon-parent collinear modes, per-mode summary statistics, CLI):
+python .claude/skills/write-spike-test/scripts/gen_spike_test.py spec.json > check5to3.f
+
+# both have structural self-tests that encode no physics answer:
+python .../genuine_modes.py --selftest && python .../gen_spike_test.py --selftest
+```
+
+Spec inputs (documented in each script's docstring): the process init
+block copied from any existing check program of the process family, the
+final-state partons with flavours (`g`, `q<tag>`, `qb<tag>`), the legal
+Born flavour sets, and the channel list — (ME, subtraction) entry-point
+pairs with IDENTICAL momentum arguments. `genuine_modes.py` is also the
+per-mode checklist the whole validation hangs on: run it before reading
+any spike-test output (run-spike-test applies the same rule).
+
+What the generated program does for you:
+- **CLI** `./check ITYPE [MODELO MODEHI] [IPOINT] [ILOW]` with a usage
+  line — no edit+recompile cycle to narrow a run;
+- mode table built programmatically for the contribution (R/RV: single
+  soft + single collinear; RR additionally: double soft, triple
+  collinear, soft-collinear, double collinear), each mode titled with
+  its GENUINE/dead classification;
+- azimuthal averaging (`rotp<n>` pi/2 rotation) on collinear modes
+  whose cluster parent is a gluon (see
+  `doc/process/VFH/texfiles/spikesAndRotation.tex` for the delicate
+  cases);
+- per (mode, x) a **summary line** — `n / nan / max|ME| / median /
+  min / max / outlier count` — not raw event dumps; the median is what
+  makes a 240-line run readable at a glance, and the max|ME| column
+  separates genuine from junk modes (run-spike-test).
+
+Copying the nearest existing test remains the fallback for layouts the
+generator does not cover (factored `test*<PROC>.f` files, exotic
+initial states): epemZH2bb is the modern lepton-initiated template,
+DISWp the reference for hadron-initiated processes with IF/II limits.
 
 ## Files
 
@@ -49,70 +87,30 @@ Key macros from `NNLOJET.mk`: `SPIKECORE` (kinematics/mapping core),
 stubs for `bino`/`getqcdnorm` so the SAME `auto*.f` used in the MC runs
 standalone in the test (no duplicated subtraction sources). List every
 subtraction `auto*.f` under test in `LIBFILES`. Use a local `obj/`, not
-the main build's `$(BASE)/obj`.
+the main build's `$(BASE)/obj`. The generated program needs
+`-ffixed-line-length-none` (already in the pattern above).
 
 ## Harness facts (each rediscovery costs a build cycle)
 
-- 7-particle limit generators live in `src/rambo/librambo.f` and mirror
-  the 6-particle ones argument-for-argument: `get_ss7 get_sco7 get_ds7
-  get_tc7 get_sc7 get_dc7`, plus `rotp7(i,j)` (π/2 rotation about the
-  collinear axis, for azimuthal averaging).
+- Limit generators live in `src/rambo/librambo.f`, one family per
+  multiplicity with parallel argument conventions (unresolved indices,
+  then the driven invariant mass, then spectators): `get_ss<n>
+  get_sco<n> get_ds<n> get_tc<n> get_sc<n> get_dc<n>` for n = 6,7,8
+  (n = 5: `get_ss5`/`get_sco5` only), plus `rotp<n>(i,j)` (pi/2
+  rotation about the collinear axis, for azimuthal averaging). Mass
+  conventions: soft-type drivers take `em = sqrts*sqrt(1-x)` (mass of
+  the recoil system), collinear-type `em = sqrts*x`.
 - Init sequence: `init_proc`, `init_map`, `setSqrts_proc`,
   `setScales`, `init_kin(nPartons,10)`; cuts via
   `ecuts_epem(1,N,ipass)`-style calls; and `common/plotmode/iplot`
   MUST be nonzero — otherwise `ecuts_*` in `src/core/null.f` prints
   "incorrect version ... used for production" and `stop`s before any
   output.
-- Mode counts, 5 final-state partons: 10 double soft + 10 triple
-  collinear + 30 soft-collinear + 15 double collinear + 5 single soft
-  + 10 single collinear = 80. GENERATE the mode blocks with a short
-  script — hand-writing 80 `case` blocks invites typos (this is how
-  the current `epem/check5to3.f` was produced).
-
-## Check program structure
-
-From `check3to2.f`/`check4to2.f` (epemZH2bb), keep this skeleton:
-
-1. **Give it a CLI**: `./check ITYPE [MODELO MODEHI] [IPOINT] [ILOW]`
-   via `getarg`, with defaults and a usage line when ITYPE is absent.
-   Hard-coded `do itype=n,n` / `do mode=1,65` loops mean every
-   narrowing of a test costs an edit+recompile+relink cycle — the
-   argument-driven rebuild made the debug loop several times faster.
-2. `iplot` flag: `2` = print per limit (default for Claude runs), `1`
-   = histogram + gnuplot output (user-driven; create the output dir
-   with `call system("mkdir -p "//sdir)`). Print SUMMARY STATISTICS
-   per mode — `n / max|ME| / median / mean / min / max` — not raw
-   event dumps; the max|ME| column is what separates genuine from
-   junk modes at a glance (run-spike-test).
-3. Mode loop — one `mode` per infrared limit, each defining:
-   - `stitle`/`sname` (human-readable limit name — run-spike-test reports
-     these, make them precise: `'"6 soft"'`, `'"5||6 collinear"'`);
-   - window `xmin`, `xmax` around 1 and approach values `x(1..3)`
-     (typically `1d-5, 1d-6, 1d-7`; softer, e.g. `1d-4..1d-6`, for
-     delicate limits);
-   - the constrained phase-space call: `get_ss<n>` for soft
-     (`emij = sqrts*sqrt(1d0-x(ips))`), `get_sco<n>` for collinear
-     (`emij = sqrts*x(ips)`), passing the spectator indices;
-   - azimuthal rotations for g→gg / g→qqb collinear limits (see
-     `doc/process/VFH/texfiles/spikesAndRotation.tex`); pure q||g limits
-     don't need them.
-4. Jet-function call: the process's `MYJET` from `maple/iprocess.map`
-   (e.g. `call ecuts_epem_vh(0,npar,ipass)`).
-5. `test(itype)` / `tests(itype)` functions: `case(itype)` pairs
-   selecting full ME and subtraction with IDENTICAL momentum arguments;
-   number channels sequentially and comment each case with the partonic
-   channel.
-6. Per point: `wt1 = test(itype)`, `wt2 = tests(itype)`,
-   `rat = wt1/wt2`; print for `iplot=2`, histogram via
-   `writespikeRR`/`writespikeRV` for `iplot=1`; count NaNs and
-   out-of-window points.
-
-**Mode coverage is the correctness-critical part**: enumerate EVERY
-unresolved limit of the contribution — R: each soft gluon, each collinear
-pair (FS and, for hadronic processes, IS); RR additionally: double soft,
-each triple-collinear cluster, soft+collinear, and double-collinear
-(FF+FF, IF+FF, ...) combinations; RV: same single-unresolved set as R.
-Use DISWp's `check5to3.f` mode grouping as the checklist model.
+- Mode counts are pure combinatorics (the generator's self-test checks
+  them): for n final-state partons at RR, C(n,2) double soft + C(n,3)
+  triple collinear + n·C(n−1,2) soft-collinear + 3·C(n,4) double
+  collinear + n single soft + C(n,2) single collinear — n=5 gives
+  10+10+30+15+5+10 = 80.
 
 ## After writing
 

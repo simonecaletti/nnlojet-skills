@@ -1,5 +1,16 @@
 {
-  "process": "epem",
+  "_comment": [
+    "Structure-complete example: every UPPERCASE placeholder must be",
+    "replaced with your process's names. decl/setup lines: copy from",
+    "the process's check program. FULLME = full ME call; REDME = the",
+    "reduced ME on j1..jN (Mapping_mod indices); soft_map = the",
+    "set_map whose antenna cluster surrounds the soft parton; basis =",
+    "one entry per candidate dipole (radiator, soft, radiator, kinset).",
+    "Do NOT copy these placeholders' argument orders blindly - derive",
+    "them (me-naming-convention), or fit both candidate orders: the",
+    "wrong one is not rational."
+  ],
+  "process": "MYPROC",
   "sqrts": 1000.0,
   "init_kin": [5, 10],
   "decl_lines": [
@@ -7,20 +18,13 @@
     "common /jetdef/ etminj,etmaxj,delrjj,rapmaxj,rapminj,jetalg",
     "common /inppar/ njets,nloop,norder",
     "common /nscale/ nscale",
-    "common /CZFlav/ nf1, nf2",
-    "common /BZFlav/ nfB1",
-    "common /Zmass/ emz,ezwidth",
     "common/method/imethod"
   ],
   "setup_lines": [
     "imethod=2",
     "nf=5",
     "nscale=1",
-    "emz=91.1876d0",
     "njets=3",
-    "nfB1=1",
-    "nf1=1",
-    "nf2=2",
     "etminj=0.05d0*sqrts_proc",
     "etmaxj=sqrts_proc/2d0",
     "rapmaxj=2d0",
@@ -30,19 +34,15 @@
   ],
   "mode": "soft",
   "em_expr": "sqrts_proc*dsqrt(1d0-xs)",
-  "limit_call": "call get_ss7(sqrts_proc,4,em1,3,5,6,7)",
+  "limit_call": "call get_ss7(sqrts_proc,ISOFT,em1,I1,I2,I3,I4)",
   "cuts_call": "call ecuts_epem(1,7,ipass)",
-  "full_me": "C1g0Z(3,4,5,6,7,2,1)",
+  "target": "FULLME(3,4,5,6,7,2,1)",
   "xs_list": [1e-8, 1e-9, 1e-10],
   "npt": 400,
-  "soft_map": "call set_map(7,6, (/3,4,5/), (/2,1,3,5,6,7/), ipass)",
-  "soft_redme": "C0g0Z(j3,j4,j5,j6,j1,j2)",
+  "soft_map": "call set_map(7,6, (/IA,ISOFT,IB/), (/2,1,IREST.../), ipass)",
+  "soft_redme": "REDME(j3,j4,j5,j6,j1,j2)",
   "basis": [
-    {"label": "dipole (3,5)", "antenna": "FullA30FF(3,4,5,7)"},
-    {"label": "dipole (6,7)", "antenna": "FullA30FF(6,4,7,7)"},
-    {"label": "dipole (3,6)", "antenna": "FullA30FF(3,4,6,7)"},
-    {"label": "dipole (5,7)", "antenna": "FullA30FF(5,4,7,7)"},
-    {"label": "dipole (3,7)", "antenna": "FullA30FF(3,4,7,7)"},
-    {"label": "dipole (5,6)", "antenna": "FullA30FF(5,4,6,7)"}
+    {"label": "dipole (I1,I2)", "antenna": "FullA30FF(I1,ISOFT,I2,7)"},
+    {"label": "dipole (I3,I4)", "antenna": "FullA30FF(I3,ISOFT,I4,7)"}
   ]
 }

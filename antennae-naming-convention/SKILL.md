@@ -9,8 +9,10 @@ description: >
   operators. Use for questions like "what is d30FF", "which antenna covers
   the 5||6 collinear limit", "what is J21 / J2^(1)", "what does S,b2 mean",
   "colour-connected vs unconnected", "what cancels the VV poles", or when
-  interpreting spike-test failures and layer-check residues. Read-only
-  reference — modify nothing.
+  interpreting spike-test failures and layer-check residues. The name
+  grammar fixes an antenna's SPECIES only — slot conventions must be
+  measured (pole scan, probe-me-ir-structure). Read-only reference —
+  modify nothing.
 ---
 
 # NNLOJET antenna naming and limit coverage
@@ -20,6 +22,18 @@ Authoritative token dictionary: `maple/notation.map` (sets `ant30set`,
 Fortran implementations: `src/X30` (tree 3-parton), `src/X31` (one-loop
 3-parton), `src/X40` (tree 4-parton), `src/X30int/{FF,IF,FI,II}`
 (integrated antennae, split by configuration).
+
+**Species vs convention — the one-line rule: before USING an antenna
+you have not used before, run the pole scan
+(probe-me-ir-structure).** This skill's letter grammar fixes the
+SPECIES (which parton kinds, which limit families). Which argument
+slots are the hard radiators, which are unresolved, how a `Full`
+composite divides its singularities between its sub-antennae, and
+which dipole its soft limit actually sits on are a separate
+CONVENTION, and the two are independent. Most `src/X40/*.f` headers
+state only a paper equation number, and `maple/notation.map` gives the
+token, not the convention — do not infer it from the letter, the
+paper, or a sibling `.map`; measure it.
 
 ## The name grammar
 
@@ -87,9 +101,14 @@ is a pure momentum rescaling, written `[1]`/`[[1]]` in the maple files
 — unambiguous. Therefore a Full composite antenna (`E40`, `D30FF`) is
 safe on a line whose cluster involves a crossed leg, but MUST be split
 into its halves (`E40a`+`E40b`, `d30FF`+`d30FF`) on all-final-state
-clusters, because the halves carry different momentum mappings. This
-is the central trap when deriving a term by crossing an existing one —
-procedure and symptoms in write-subtraction.
+clusters, because the halves carry different momentum mappings AND
+cover DIFFERENT limits: choosing one half silently drops a whole class
+of limits while looking locally correct. Measure each half's pole
+graph (probe-me-ir-structure) and confirm the union covers every limit
+the block is responsible for — a half with fewer poles is not "safer",
+it is incomplete. This is the central trap when deriving a term by
+crossing an existing one — procedure and symptoms in
+write-subtraction.
 
 ## Letter ↔ radiators ↔ limits subtracted
 
@@ -120,8 +139,9 @@ single-unresolved statement — a same-flavour qq̄ PAIR does have a
 double-soft limit at X40 level (B40-type), provided deleting the pair
 leaves a legal Born (reduced-Born rule, see run-spike-test). For the
 exact per-letter content check `maple/notation.pdf` or the header of
-the `src/X40` file — do not guess when assigning a specific double
-limit.
+the `src/X40` file — and when assigning a specific double limit, do
+not guess: measure the antenna's pole graph
+(probe-me-ir-structure pole scan) before placing it.
 
 `X31` (one-loop 3-parton, `A31FF`, ...) cover the same single limits
 as their X30 partner at one loop; they appear only in RV (`*T`) terms.
@@ -189,6 +209,14 @@ configuration for another.
 3. Implementation: `src/X30|X31|X40/<Full...>.f`; integrated partner:
    `src/X30int/<config>/`; symbolic `cal*` names:
    `test/layer_check/include/X30.inc` etc.
+4. Usage precedent: grep the exact name across `maple/process/`,
+   `src/process/` and `driver/process/` INCLUDING generated `auto*.f`
+   — generated Fortran survives when `.map` sources do not, and a
+   generated call site shows argument order, mapping, coefficient and
+   the counterterm it pairs with (procedure in write-subtraction).
+5. Before first use in a new term: pole scan
+   (probe-me-ir-structure) — see the species-vs-convention rule at the
+   top.
 
 Related: subtraction-term structure (which lines carry which antenna)
 → write-subtraction; ME names → me-naming-convention.

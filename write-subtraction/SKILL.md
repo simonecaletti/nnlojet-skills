@@ -2,11 +2,16 @@
 name: write-subtraction
 description: >
   Write, edit, or fix an antenna-subtraction term at the maple level
-  (maple/process/<DIR>/*.map) in NNLOJET. Use whenever the user asks to write,
-  modify, or debug a subtraction term, fix a channel that fails a spike test,
-  or add missing infrared limits to a subtraction. This skill covers ONLY the
-  maple .map file; generating Fortran and registering it is the
-  autogen-subtraction skill, and validation is the run-spike-test skill.
+  (maple/process/<DIR>/*.map) in NNLOJET — including building one from
+  scratch when no analogous term exists in any neighbouring process:
+  aligning an unfamiliar antenna's arguments with the cluster rule,
+  constructing the S,b2 / S,c / S,d blocks from measured pole graphs, and
+  iterating block hypotheses with the composer script. Use whenever the
+  user asks to write, modify, or debug a subtraction term, fix a channel
+  that fails a spike test, or add missing infrared limits to a
+  subtraction. This skill covers ONLY the maple .map file; generating
+  Fortran and registering it is the autogen-subtraction skill, and
+  validation is the run-spike-test skill.
 ---
 
 # Writing NNLOJET subtraction terms (maple level)
@@ -75,9 +80,9 @@ Every line of `XX` is:
   momentum list in the generated `set_map` call is canonical (i1, i2,
   then the cluster representatives in cluster order, then the remaining
   spectators in ascending index order) and is derived from the antenna
-  cluster, not from the JET arguments (`Ct1g0ZepemS.map` line a2: the
-  JET34 order differs from the emitted set_map list). Do not agonise
-  over JET ordering.
+  cluster, not from the JET arguments (verifiable in any generated
+  `auto*.f`: the emitted set_map list routinely differs from the JET
+  argument order of its `.map` line). Do not agonise over JET ordering.
 - **Which mapped momenta a cluster produces**: a 3-parton antenna
   cluster (a,b,c) yields `[a,b]` and `[b,c]`; a 4-parton cluster
   (a,b,c,d) yields `[a,b,c]` and `[d,c,b]`. Bracket contents are
@@ -151,31 +156,70 @@ The line list is DERIVED from the full ME, not invented:
    `A30FF(a,b,c)` line covers b-soft AND both a∥b, b∥c collinear at
    once; do not write separate lines per limit. Use sub-antennae
    (`d30`, `f30`) where a full antenna would double-count limits shared
-   between overlapping clusters.
+   between overlapping clusters. **Before using an antenna you have
+   not used before, run the pole scan** (probe-me-ir-structure): the
+   letter fixes the species but NOT the slot convention (which
+   arguments are radiators, which unresolved, which dipole the soft
+   limit sits on) — do not infer the convention from the letter, the
+   paper, or a sibling `.map`. Then follow the alignment procedure
+   below.
 3. **Build the reduced ME** from the cluster rules above: remove the
    unresolved parton, substitute the mapped momenta for the radiators;
    the reduced ME is the (n−1)-parton amplitude of the resulting
    flavour content (find its name via me-naming-convention). JET
    arguments = the reduced final-state momenta (order free).
 4. **RR assembly by block** (the dσ^S decomposition of Fig. 3,
-   arXiv:1301.4693; worked example: `Ct1g0ZepemS.map`). For each PAIR of
-   unresolved partons, its COLOUR CONNECTION decides the block:
-   - **S,a** — `X30 × M_{n-1}` for each single-unresolved cluster
-     (a1–a8 there);
+   arXiv:1301.4693). For each PAIR of unresolved partons, its COLOUR
+   CONNECTION decides the block:
+   - **S,a** — `X30 × M_{n-1}` for each single-unresolved cluster;
    - **S,b1** — COLOUR-CONNECTED pair (the two unresolved partons share
-     a radiator between them): one `X40 × M_{n-2}` (a9, `B40`);
+     a radiator between them): one `X40 × M_{n-2}`;
    - **S,b2** — MINUS the iterated `X30 × X30 × M_{n-2}` overlap
      between S,a and S,b1, with ±1/2 symmetry factors where clusters
-     are symmetric (a10–a21);
+     are symmetric. **Construct it from measurement, not from a
+     shortcut**: the set of iterated counterterms is indexed by
+     **(S,a line, X40 line) pairs that share a singular invariant**.
+     Take the pole graphs of both (probe-me-ir-structure pole scan);
+     if they share no pole, there is no overlap and no counterterm.
+     For each pair that does share one, the counterterm is the product
+     of the two antennae with the second evaluated on the first's
+     mapped momenta, and its coefficient is fixed by requiring
+     cancellation on the shared boundary — verify with the residue
+     fitter rather than by pattern-matching a neighbouring file. The
+     COUNT of counterterms is a property of the pole graphs, NOT of
+     the term count in the reduced ME's NLO subtraction. (The rule
+     "minus the S,a antenna times the NLO subtraction of its reduced
+     ME" agrees with this only when the reduced ME has a single
+     unresolved sector; with several sectors it generates counterterms
+     for overlaps that do not exist, which destroys limits that were
+     previously exact.)
    - **S,c** — ALMOST-COLOUR-CONNECTED pair (separated by one hard
-     radiator): the iterated products need large-angle soft
-     corrections, written as SS-difference blocks multiplying
-     `X30 × M` lines: `(SFF(..)+SFF(..)−SFF(..)−SFF(..))*E30FF(..)*M`
-     (a22, a27);
+     radiator): a large-angle soft correction, written as SS-difference
+     blocks multiplying `X30 × M` lines, shape
+     `(SFF(..)+SFF(..)−SFF(..)−SFF(..))*X30(..)*M`. **Construction,
+     not just shape**: S,c is the difference between the exact eikonal
+     of the TRUE ME dipole and the eikonal the iterated X30×X30
+     product actually produces in the soft limit. Both are measurable:
+     fit the soft residue of the X40 and of the iterated product
+     separately (residue fitter) and take the difference; then confirm
+     numerically that the candidate SS combination reproduces that
+     difference BEFORE writing it into the `.map`. Fortran facts
+     needed for that measurement (not inferable from `notation.map`):
+     `SS(i1,i3,i2,ipset)` takes the two radiators i1,i2 evaluated on
+     `kin(ipset)`; the middle argument only NAMES the soft leg — the
+     actual soft momentum is read from `common /soft/ psoft(4)`, which
+     the caller must fill from the unmapped kinematics.
+     `SS1(j1,i3,j2,jpset,ipset)` is the variant with radiators on a
+     reduced (mapped) momentum set.
    - **S,d** — COLOUR-UNCONNECTED pair (two disjoint dipoles): a plain
-     product `X30 × X30 × M_{n-2}` for the double collinear of distinct
-     radiator pairs — nothing genuinely new at NNLO, but the lines must
-     be there.
+     product `X30 × X30 × M_{n-2}`, one line per pair of DISJOINT
+     clusters that are each singular (pole graphs again) — nothing
+     genuinely new at NNLO, but the lines must be there. **Diagnostic
+     signature of a missing S,d**: the double-collinear (and
+     double-soft-adjacent) modes of DISTINCT radiator pairs fail while
+     all single limits and the colour-connected double limits pass,
+     and the failing ratio ME/subtraction sits ABOVE 1 and grows as x
+     decreases (under-subtraction).
 
    **The minimal buildable/testable unit is S,a + S,b1 + S,b2 for one
    flavour sector — never S,a alone.** The X40 carries a spurious
@@ -185,17 +229,19 @@ The line list is DERIVED from the full ME, not invented:
    failure signatures of partial builds: S,a alone → soft-gluon mode
    reads ~0.4 (X30×M lines still contain the gluon in their reduced
    ME); S,a + iterated only → WORSE, negative O(1) ratios. All three
-   together → 1.000000 first try. Pairing model:
-   `maple/process/epemjj/C0g0ZepemjjS.map`, where the `B40` lines
-   (coefficient sum 1 per sector) pair exactly against the
-   `−E30FF×A30FF` lines (also sum 1).
+   together → 1.000000 first try. Consistency check on the pairing:
+   per flavour sector, the X40 lines' coefficients must sum against
+   the corresponding iterated `−X30×X30` lines' coefficients (equal
+   sums — e.g. both 1); verify the sums directly in your file rather
+   than trusting any single reference file to exist.
 
    **Choosing WHICH X40**: sum what the iterated X30×X30 counterterms
-   give in the collapsing limit, then pick the X40 whose known limit
-   (antennae-naming-convention; `maple/notation.pdf`) reproduces that
-   sum. Do NOT pick by colour-adjacency intuition — it over-includes:
-   two colour-connected quarks do not by themselves imply a B40-type
-   antenna if the iterated sum matches a different X40's limit.
+   give in the collapsing limit, then pick the X40 whose MEASURED
+   limit (pole scan + residue fit; `maple/notation.pdf` for
+   orientation) reproduces that sum. Do NOT pick by colour-adjacency
+   intuition — it over-includes: two colour-connected quarks do not by
+   themselves imply a B40-type antenna if the iterated sum matches a
+   different X40's limit.
    RV (dσ^T): **T,a** = minus the integrated counterparts (`J21`) of
    the R-term's antennae × `M_n` (cancels the RV poles); **T,b** =
    `X30 × M^{1-loop}` plus the `(X31 + X30·J21)` closures; **T,c** =
@@ -211,6 +257,74 @@ The line list is DERIVED from the full ME, not invented:
    empirical verdict via the |wt1| scaling exponent), then demand
    coverage only for the genuine ones. `makeRRcheck`'s
    `autoRRX40/M0/SS.map` split shows your classification back to you.
+
+## Aligning an antenna's argument list with the cluster rule
+
+The cluster rule `X40(a,b,c,d) → [a,b,c],[d,c,b]` presumes a colour
+chain `a–b–c–d`. Whether a given Fortran antenna actually realises
+that chain under those arguments is a SEPARATE convention, documented
+nowhere — and it can differ between a `Full` composite and its own
+sub-antennae. Writing a `.map` line therefore couples two independent
+conventions; get the pairing wrong and the term is singular in limits
+the ME is finite in, and every downstream counterterm attempt fails
+for reasons that look like physics errors. The generic four-step
+procedure (applies to D40, G40, H40, and every IF/FI/II variant):
+
+1. **Measure the antenna's pole graph** (probe-me-ir-structure pole
+   scan).
+2. **Read the chain off the pole graph**: the endpoints are the
+   radiators, the interior legs the unresolved pair.
+3. **Assign physical partons to slots so that BOTH hold**: every
+   cluster implied by the cluster rule has single-parton net flavour,
+   AND the physical colour chain matches the measured chain.
+4. **Cross-check by measurement** (mandatory — this is the step that
+   is easy to skip and expensive to skip): in the limit where a
+   RADIATOR becomes unresolved, the antenna must reproduce the eikonal
+   of a dipole that actually exists in the full matrix element (fit it
+   with probe-me-ir-structure). If it lands on a dipole the ME does
+   not have, the assignment is wrong — no counterterm can repair it.
+
+**Splitting a `Full` composite on all-final clusters** (the companion
+rule): the halves carry different momentum mappings AND cover
+DIFFERENT limits — choosing one half silently drops a whole class of
+limits while looking locally correct. Measure each half's pole graph
+and confirm their UNION covers every limit the block is responsible
+for. A half with fewer poles is not "safer" — it is incomplete.
+
+## Finding a precedent for an antenna
+
+To see how an antenna has been used before, grep for it across
+`maple/process/`, `src/process/` and `driver/process/` — INCLUDING the
+generated `auto*.f` and library files. Generated Fortran survives when
+`.map` sources do not (resets, never-written terms), and a generated
+call site still shows the argument order, the mapping (`set_map`
+list), the coefficient, and the counterterm it pairs with:
+
+```bash
+grep -rl 'FullG40' maple/process/ src/process/ driver/process/
+grep -B5 -A10 'FullG40' src/process/*/auto*.f   # call site + set_map + wt()
+```
+
+## Iterating structural hypotheses: the block composer
+
+Debugging RR structure means testing "does this block belong here?"
+many times, and each test costs a regenerate–compile–link cycle; the
+`aN` labels must stay gap-free, so hand-inserting or deleting lines
+means renumbering everything below. Use the block composer instead:
+
+```bash
+# master file: your .map with '# block: <name>' comment markers
+python .claude/skills/write-subtraction/scripts/map_blocks.py list  master.map
+python .claude/skills/write-subtraction/scripts/map_blocks.py compose master.map \
+       --blocks Sa,Sb1,Sb2_f1 -o <TERM>.map      # renumbers aN gap-free
+python .claude/skills/write-subtraction/scripts/map_blocks.py --selftest
+```
+
+Keep ALL candidate lines in the master, group them under block
+markers, compose the subset under test, then run the one-command
+regenerate+rebuild wrapper (autogen-subtraction) and the spike test.
+This turns a structural hypothesis into a single short test — and
+makes the block bisection of run-spike-test practical.
 
 ## Deriving a term by crossing an existing one
 
@@ -231,10 +345,12 @@ these explicitly — every one is a silent, build-cycle-eating trap:
    composite antenna is safe on a crossed leg. Un-crossed to all-final
    kinematics the two halves carry DIFFERENT momentum mappings: Full
    `E40` must become `E40a`+`E40b`, Full `D30FF` → `d30FF`+`d30FF`
-   (compare `qC1g0ZDISS.map` a10/a11 — Full on `[1]` clusters — with
-   its own a5–a8, already split for all-final clusters). Symptom of
-   transcribing: one dipole fails BOTH its single-collinear limits
-   while its mirror dipole reads 1.0000.
+   (one-leg-crossed DIS-type files show both patterns side by side:
+   Full on `[1]` clusters, split halves on all-final clusters). After
+   splitting, apply the union rule above: measure each half's pole
+   graph and confirm together they cover every limit of the block.
+   Symptom of transcribing: one dipole fails BOTH its single-collinear
+   limits while its mirror dipole reads 1.0000.
 2. **Iterated-counterterm cluster ordering** is not crossing-invariant:
    an X30 argument order that is unambiguous when one leg is the
    crossed `[1]` must be re-derived for the all-final version —
@@ -290,13 +406,19 @@ to which class — regenerate and inspect it when debugging structure.
 ## Fixing a term after a failed spike test
 
 The failing mode reported by run-spike-test names the limit (e.g.
-"5||6 collinear", "6 soft", "triple collinear 567"). Locate the `XX` lines
-whose antenna covers that limit (antenna arguments contain the unresolved
-parton(s)) and check: correct antenna type for the parton species
-(quark/gluon, FF/IF/FI/II), correct mapped arguments in the reduced ME and
-JET function, correct relative sign of the iterated `X30×X30` lines, no
-missing limit entirely. Compare against the analogous term in a
-neighbouring process (`maple/process/` is full of worked examples).
+"5||6 collinear", "6 soft", "triple collinear 567"). Use the mode→block
+diagnosis in run-spike-test first: only blocks whose antennae have a
+pole in that mode's invariants can be responsible, the ratio's
+CHARACTER (stable offset vs wide spread vs tails) narrows the error
+class, and block bisection with the composer above plus the
+regenerate+rebuild wrapper localises it. Then check the suspect lines:
+correct antenna type for the parton species (quark/gluon,
+FF/IF/FI/II), correct mapped arguments in the reduced ME and JET
+function, correct relative sign of the iterated `X30×X30` lines, no
+missing limit entirely. When an analogous term exists in a
+neighbouring process, compare against it; when it does not, use the
+precedent-grep procedure above — and fall back on measurement, never
+on guessing.
 
 ## Next step
 

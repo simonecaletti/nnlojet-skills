@@ -80,10 +80,12 @@ SOFT_POINT = """          call unset_map()
           red = {soft_redme}
           if (abs(red).lt.1d-30) cycle
           y = ame/red
-{basis_eval}"""
+{basis_eval}
+"""
 
 COLL_POINT = """          y = ame
-{basis_eval}"""
+{basis_eval}
+"""
 
 ACCUM = """c         normalise per point so no single deep point dominates
           scal = 0d0
@@ -196,12 +198,18 @@ def f77(lines, indent="      "):
     return "\n".join(indent + ln if ln.strip() else ln for ln in lines)
 
 
-def main():
-    spec = json.load(open(sys.argv[1]))
+def generate(spec):
     basis = spec["basis"]
     nb = len(basis)
     xs = spec["xs_list"]
     mode = spec["mode"]
+    # "target" is the general name: any Fortran expression to be fitted —
+    # a full ME (the original use) OR an antenna function (residue fitting:
+    # what does an X40 reduce to on this boundary?). "full_me" kept as an
+    # accepted synonym for old specs.
+    target = spec.get("target", spec.get("full_me"))
+    if target is None:
+        raise KeyError("spec needs 'target' (or legacy 'full_me')")
 
     out = HDR.format(nb=nb, nxs=len(xs), process=spec["process"],
                      sqrts=spec["sqrts"], ik0=spec["init_kin"][0],
@@ -214,7 +222,7 @@ def main():
                             em_expr=spec["em_expr"],
                             limit_call=spec["limit_call"],
                             cuts_call=spec["cuts_call"],
-                            full_me=spec["full_me"])
+                            full_me=target)
 
     if mode == "soft":
         beval = []
@@ -223,14 +231,19 @@ def main():
         out += SOFT_POINT.format(soft_map=spec["soft_map"],
                                  soft_redme=spec["soft_redme"],
                                  basis_eval="\n".join(beval))
-    else:  # collinear: basis element = antenna * reduced ME, un-divided
+    else:  # collinear / residue mode: basis element = antenna [* reduced ME]
         beval = []
         for k, e in enumerate(basis, 1):
-            beval.append("          call unset_map()")
-            beval.append("          ipass=1")
-            beval.append(f"          {e['map']}")
-            beval.append(f"          if (ipass.ne.1) cycle")
-            beval.append(f"          b({k}) = ({e['antenna']})*({e['redme']})")
+            if "map" in e:  # basis term evaluated on its own mapped momenta
+                beval.append("          call unset_map()")
+                beval.append("          ipass=1")
+                beval.append(f"          {e['map']}")
+                beval.append("          if (ipass.ne.1) cycle")
+            if "redme" in e:
+                beval.append(
+                    f"          b({k}) = ({e['antenna']})*({e['redme']})")
+            else:  # pure antenna-basis entry (antenna-on-antenna residue fit)
+                beval.append(f"          b({k}) = {e['antenna']}")
         out += COLL_POINT.format(basis_eval="\n".join(beval))
 
     bprint = ""
@@ -239,7 +252,56 @@ def main():
         bprint += (f"          write(*,'(a,f16.8)') '   {lbl} : ', c({k})\n")
     out += ACCUM.format(basis_print=bprint)
     out += SOLVER
-    sys.stdout.write(out)
+    return out
+
+
+def selftest():
+    """Structural self-test. Encodes NO physics answer: it only checks that
+    the emitted Fortran is well-formed (the historical failure was the last
+    basis assignment fused onto the following comment line)."""
+    base = {
+        "process": "p", "sqrts": 100.0, "init_kin": [3, 10],
+        "decl_lines": ["common /x/ ndum"], "setup_lines": ["ndum=1"],
+        "em_expr": "sqrts_proc*xs",
+        "limit_call": "call get_sco5(sqrts_proc,3,4,em1,5)",
+        "cuts_call": "continue",
+        "target": "dummy_target(3,4,5)",
+        "xs_list": [1e-5, 1e-6], "npt": 10,
+    }
+    soft = dict(base, mode="soft",
+                soft_map="call set_map(5,4,(/3,4/),(/1,2,3,5/),ipass)",
+                soft_redme="dummy_red(j1,j2,j3)",
+                basis=[{"label": "t1", "antenna": "f1(3,4,5)"},
+                       {"label": "t2", "antenna": "f2(3,4,5)"}])
+    coll = dict(base, mode="collinear",
+                basis=[{"label": "t1", "antenna": "f1(3,4,5)",
+                        "map": "call set_map(5,4,(/3,4/),(/1,2,3,5/),ipass)",
+                        "redme": "r1(j1,j2,j3)"},
+                       {"label": "t2", "antenna": "f2(3,4,5)"}])
+    for name, sp in (("soft", soft), ("collinear", coll)):
+        src = generate(sp)
+        for ln in src.splitlines():
+            # no executable statement fused with a comment line
+            assert not ("b(" in ln and "normalise" in ln), \
+                f"{name}: fused basis/comment line: {ln!r}"
+            # fixed-form comments must start in column 1
+            if "normalise per point" in ln:
+                assert ln.startswith("c"), f"{name}: comment not col 1: {ln!r}"
+        # every basis assignment present, on its own line
+        n_assign = sum(1 for ln in src.splitlines()
+                       if ln.strip().startswith("b(") and "=" in ln)
+        assert n_assign == 2, f"{name}: expected 2 basis lines, {n_assign}"
+        assert src.splitlines()[0].strip() == "program probe_gen"
+        assert "end program probe_gen" in src
+    print("gen_probe selftest OK")
+
+
+def main():
+    if len(sys.argv) > 1 and sys.argv[1] == "--selftest":
+        selftest()
+        return
+    spec = json.load(open(sys.argv[1]))
+    sys.stdout.write(generate(spec))
 
 
 if __name__ == "__main__":

@@ -3,16 +3,40 @@ name: autogen-subtraction
 description: >
   Generate the Fortran for an NNLOJET subtraction term from its maple .map
   file (makefortRR / makefortRV / makeformVV) and register it so the spike
-  test compiles and links it. Use after writing or editing a .map file
-  (write-subtraction skill), or when the user asks to regenerate auto*.f
-  files or hook a subtraction term into a spike test. Scope is
-  spike-test-only: full-process/driver registration is a separate concern.
+  test compiles and links it — including the one-command
+  regenerate+rebuild wrapper used to iterate on a term. Use after writing
+  or editing a .map file (write-subtraction skill), or when the user asks
+  to regenerate auto*.f files or hook a subtraction term into a spike
+  test. Scope is spike-test-only: full-process/driver registration is a
+  separate concern.
 ---
 
 # Generating and registering a subtraction term (spike-test scope)
 
 Chain position: write-subtraction → **autogen-subtraction** →
 run-spike-test.
+
+## Fast path: one-command regenerate + rebuild (already-registered terms)
+
+When iterating on an EXISTING term (block bisection, structural
+hypotheses — the loop that write-subtraction's block composer feeds),
+do Steps 1–2 plus the test rebuild in one command:
+
+```bash
+bash .claude/skills/autogen-subtraction/scripts/regen_rebuild.sh \
+     -n <iprocess> -l RR -s src/process/<DIR> \
+     -t test/process/<PROC> -m check4to2
+bash .claude/skills/autogen-subtraction/scripts/regen_rebuild.sh --selftest
+```
+
+It runs the consistency check (aborting on `aN` gaps), regenerates the
+Fortran (aborting on `invalid ME argument` / `left-over list`),
+restores files whose change was boilerplate-only (the semantic-diff
+discipline of Step 2, automated), and rebuilds the check program
+(retrying `-j1` on the module-dependency race). Each structural
+hypothesis then costs one command instead of a hand-driven
+regenerate–diff–restore–rebuild cycle. New terms still need Step 3
+once, by hand.
 
 ## Scope
 

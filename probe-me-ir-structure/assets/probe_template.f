@@ -1,9 +1,11 @@
       program probe_template
 c***********************************************************************
 c     Hand-editable IR-structure probe (see probe-me-ir-structure skill).
-c     Derived from the session-verified epem/C1g0Z soft probe; edit the
-c     MARKED blocks for your ME. Solver refuses degenerate systems and
-c     reports the residual (unlike the original probe.f).
+c     Structure verified in-session on a 5-parton epem RR channel; all
+c     UPPERCASE placeholders in the MARKED blocks must be replaced for
+c     your ME (derive names/orders - me-naming-convention - or fit both
+c     candidate orders: the wrong one is not rational). Solver refuses
+c     degenerate systems and reports the residual.
 c
 c     Soft mode shown. For COLLINEAR limits: basis element must be
 c     antenna*reducedME un-divided, each with its own set_map; use
@@ -33,7 +35,7 @@ c ----------------------------------------------------------------------
       dimension ipr(nb,2), xslist(nxs)
 
 c --- EDIT: process init ----------------------------------------------
-      call init_proc("epem")
+      call init_proc("MYPROC")
       call init_map()
       call setSqrts_proc(1000d0)
       iplot=2              ! nonzero or null.f ecuts stops the program
@@ -53,19 +55,21 @@ c --- EDIT: process init ----------------------------------------------
       rapminj=0d0
       delrjj=0.6d0
       jetalg=1
-c --- EDIT: dipole candidates (soft gluon = parton 4 here) ------------
-      ipr(1,1)=3
-      ipr(1,2)=5
-      ipr(2,1)=6
-      ipr(2,2)=7
-      ipr(3,1)=3
-      ipr(3,2)=6
-      ipr(4,1)=5
-      ipr(4,2)=7
-      ipr(5,1)=3
-      ipr(5,2)=7
-      ipr(6,1)=5
-      ipr(6,2)=6
+c --- EDIT: dipole candidates -----------------------------------------
+c     one row per candidate (radiator, radiator) pair around the soft
+c     parton ISOFT; list ALL candidates, the fit zeroes the spurious
+      ipr(1,1)=I1
+      ipr(1,2)=I2
+      ipr(2,1)=I3
+      ipr(2,2)=I4
+      ipr(3,1)=I1
+      ipr(3,2)=I3
+      ipr(4,1)=I2
+      ipr(4,2)=I4
+      ipr(5,1)=I1
+      ipr(5,2)=I4
+      ipr(6,1)=I2
+      ipr(6,2)=I3
       data xslist /1d-8, 1d-9, 1d-10/
       npt = 400
 c ----------------------------------------------------------------------
@@ -77,24 +81,24 @@ c ----------------------------------------------------------------------
         nacc = 0
         do ii=1,npt
 c --- EDIT: limit generator + cuts + full ME + shared soft map --------
+c     ISOFT = the soft parton; the set_map cluster surrounds it; the
+c     reduced ME uses the mapped indices j1..jN from Mapping_mod
           em1=sqrts_proc*dsqrt(1d0-xs)
-          call get_ss7(sqrts_proc,4,em1,3,5,6,7)
+          call get_ss7(sqrts_proc,ISOFT,em1,I1,I2,I3,I4)
           ipass=1
           call ecuts_epem(1,7,ipass)
           if (ipass.ne.1) cycle
-          nf1=1
-          nf2=2
-          ame = C1g0Z(3,4,5,6,7,2,1)
+          ame = FULLME(3,4,5,6,7,2,1)
           call unset_map()
           ipass=1
-          call set_map(7,6, (/3,4,5/), (/2,1,3,5,6,7/), ipass)
+          call set_map(7,6, (/IA,ISOFT,IB/), (/2,1,IREST/), ipass)
           if (ipass.ne.1) cycle
-          red = C0g0Z(j3,j4,j5,j6,j1,j2)
+          red = REDME(j3,j4,j5,j6,j1,j2)
 c ----------------------------------------------------------------------
           if (abs(red).lt.1d-30) cycle
           y = ame/red
           do kk=1,nb
-            b(kk) = FullA30FF(ipr(kk,1),4,ipr(kk,2),7)
+            b(kk) = FullA30FF(ipr(kk,1),ISOFT,ipr(kk,2),7)
           end do
           scal = 0d0
           do kk=1,nb
