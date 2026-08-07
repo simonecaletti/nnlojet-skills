@@ -1,0 +1,48 @@
+{
+  "process": "epem",
+  "sqrts": 1000.0,
+  "init_kin": [5, 10],
+  "decl_lines": [
+    "common /koppel/ nf,nc,b0",
+    "common /jetdef/ etminj,etmaxj,delrjj,rapmaxj,rapminj,jetalg",
+    "common /inppar/ njets,nloop,norder",
+    "common /nscale/ nscale",
+    "common /CZFlav/ nf1, nf2",
+    "common /BZFlav/ nfB1",
+    "common /Zmass/ emz,ezwidth",
+    "common/method/imethod"
+  ],
+  "setup_lines": [
+    "imethod=2",
+    "nf=5",
+    "nscale=1",
+    "emz=91.1876d0",
+    "njets=3",
+    "nfB1=1",
+    "nf1=1",
+    "nf2=2",
+    "etminj=0.05d0*sqrts_proc",
+    "etmaxj=sqrts_proc/2d0",
+    "rapmaxj=2d0",
+    "rapminj=0d0",
+    "delrjj=0.6d0",
+    "jetalg=1"
+  ],
+  "mode": "soft",
+  "em_expr": "sqrts_proc*dsqrt(1d0-xs)",
+  "limit_call": "call get_ss7(sqrts_proc,4,em1,3,5,6,7)",
+  "cuts_call": "call ecuts_epem(1,7,ipass)",
+  "full_me": "C1g0Z(3,4,5,6,7,2,1)",
+  "xs_list": [1e-8, 1e-9, 1e-10],
+  "npt": 400,
+  "soft_map": "call set_map(7,6, (/3,4,5/), (/2,1,3,5,6,7/), ipass)",
+  "soft_redme": "C0g0Z(j3,j4,j5,j6,j1,j2)",
+  "basis": [
+    {"label": "dipole (3,5)", "antenna": "FullA30FF(3,4,5,7)"},
+    {"label": "dipole (6,7)", "antenna": "FullA30FF(6,4,7,7)"},
+    {"label": "dipole (3,6)", "antenna": "FullA30FF(3,4,6,7)"},
+    {"label": "dipole (5,7)", "antenna": "FullA30FF(5,4,7,7)"},
+    {"label": "dipole (3,7)", "antenna": "FullA30FF(3,4,7,7)"},
+    {"label": "dipole (5,6)", "antenna": "FullA30FF(5,4,6,7)"}
+  ]
+}
