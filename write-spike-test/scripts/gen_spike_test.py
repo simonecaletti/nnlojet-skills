@@ -34,8 +34,10 @@ Spec fields:
                  arguments in me and sub
   test_use_lines / test_decl_lines : optional, for the test()/tests()
                  functions (default: same modules as the main program)
-  xs_soft      : x values for soft-driven modes  (default 1e-5..1e-7)
-  xs_coll      : x values for collinear modes    (default 1e-5..1e-7)
+  xs_soft      : x values for soft-driven modes  (default 1e-7..1e-9)
+  xs_coll      : x values for collinear modes    (default 1e-7..1e-9)
+                 — the pass criterion is a plateau at 1 ACROSS the
+                 scan, not one deep evaluation (run-spike-test)
 
 Build with the makefile pattern in the write-spike-test skill
 (-ffixed-line-length-none is assumed).
@@ -150,8 +152,13 @@ def generate(spec):
     modes = enumerate_modes(fs, fams)
     cls = {(m["family"], m["name"]): m
            for m in classify(fs, spec["born"], fams)}
-    xs_soft = spec.get("xs_soft", [1e-5, 1e-6, 1e-7])
-    xs_coll = spec.get("xs_coll", [1e-5, 1e-6, 1e-7])
+    # default x scans: the typical working range 1e-7..1e-9 (deeper —
+    # down to 1e-10 — can work but is not automatically better; the
+    # object is a PLATEAU at 1 across the scan, and instabilities at
+    # the deepest x are expected and reportable, not silently
+    # droppable). Override per family with xs_soft / xs_coll.
+    xs_soft = spec.get("xs_soft", [1e-7, 1e-8, 1e-9])
+    xs_coll = spec.get("xs_coll", [1e-7, 1e-8, 1e-9])
     chans = spec["channels"]
     prog = f"check{nfs}to{spec['nborn']}" + \
         ("loop" if contrib == "RV" else "")

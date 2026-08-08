@@ -112,6 +112,20 @@ the main build's `$(BASE)/obj`. The generated program needs
   collinear + n single soft + C(n,2) single collinear — n=5 gives
   10+10+30+15+5+10 = 80.
 
+## x scan defaults and the chat report
+
+The generated program defaults to x = `1e-7, 1e-8, 1e-9` per family
+(override with `xs_soft`/`xs_coll`; down to `1e-10` can work but is
+not automatically better). The pass criterion is a **plateau at 1
+across the scan**, never a single deep evaluation; instability at the
+deepest x is expected and must be REPORTED (naming that x), not
+silently dropped — see run-spike-test. The per-mode summary lines the
+program prints (median/min/max/outliers per x) are exactly the raw
+material for the **limit table that must be reported in chat** after
+every run on a new or edited term: one row per genuine limit,
+including passes, ordered by family; dead modes in one line
+(run-spike-test documents the table format).
+
 ## After writing
 
 Build with `make -j8`, then hand over to **run-spike-test**. A brand-new
