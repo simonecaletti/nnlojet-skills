@@ -4,9 +4,11 @@ description: >
   Write, edit, or fix an antenna-subtraction term at the maple level
   (maple/process/<DIR>/*.map) in NNLOJET — including building one from
   scratch when no analogous term exists in any neighbouring process:
+  deriving the block skeleton from colour connection before any run,
   aligning an unfamiliar antenna's arguments with the cluster rule,
   constructing the S,b2 / S,c / S,d blocks from measured pole graphs, and
-  iterating block hypotheses with the composer script. Use whenever the
+  iterating block hypotheses with the composer script. Also answers "why
+  does this block exist / why this sign / how many lines". Use whenever the
   user asks to write, modify, or debug a subtraction term, fix a channel
   that fails a spike test, or add missing infrared limits to a
   subtraction. This skill covers ONLY the maple .map file; generating
@@ -28,6 +30,13 @@ Before re-deriving anything by measurement or build cycle, walk this
 ladder from the top; each rung answers in seconds what the rung below
 answers in minutes-to-hours:
 
+0. **Derive the block skeleton** — which blocks exist, how many lines
+   each carries, their signs, and the rational family the coefficients
+   live in are all FIXED by colour connection; they do not need
+   measuring. `predict_blocks.py` (below) emits them in seconds. Do
+   this FIRST: everything on the rungs below then has an expected
+   answer, and a disagreement localises to the block STRUCTURE instead
+   of being absorbed as a fitted number.
 1. **Name lookups** — me-naming-convention (ME grammar, crossing
    relatives), antennae-naming-convention (species, layer,
    FF/IF/FI/II correspondences); list-channels / list-processes for
@@ -121,6 +130,24 @@ Every line of `XX` is:
 Optional: `colflag:=true:` (groups several reduced MEs under one antenna),
 `XX:=expand( ... ):` in some RV files.
 
+**`colflag` is load-bearing, not cosmetic** — 474 `.map` files set it
+(concentrated in `4jet/`, `WJJJ/`, `WJJ/`, `3jet/`), and it changes what
+the generator emits in three ways (`makefortRR` ~lines 119–122, 327–340,
+349–375, 396–400; `makefortRV` similarly). Default is `false`, reset per
+subtraction term inside the loop:
+
+1. it **skips `expand()`** when splitting on the `aN` labels, preserving
+   the factorised `ant30*(ME_1 + ME_2 + ...)` shape instead of
+   distributing it into separate terms;
+2. it collects a **LIST** of matrix elements (`matM0:=[...]`) rather
+   than a single one;
+3. **the flavour mapping is taken from `matM0[1]` — the FIRST element of
+   that list only** (`FLAVxx:=subs(pmap,matM0[1])`). This is the trap:
+   reorder the MEs inside the bracket and you silently change the
+   emitted `set_flav_perm`, with no error and no `.map`-level symptom.
+   If a colflag term fails in a way that looks like a wrong flavour
+   sector, check the FIRST ME in the group before anything else.
+
 **Comment discipline — a `.map` is source, not a notebook:**
 
 - The file HEADER carries only what is needed to READ the file: the
@@ -135,6 +162,72 @@ Optional: `colflag:=true:` (groups several reduced MEs under one antenna),
   table) and, if they must persist, in a separate notes file — never
   in the term. A session that has just debugged a term must REMOVE its
   scratch commentary before finishing.
+
+## Rung 0 — derive the block skeleton before measuring anything
+
+Colour connection fixes the STRUCTURE of an RR term completely: which
+blocks exist, how many lines each carries, every sign, and the rational
+family every coefficient belongs to. None of that needs a run. Derive
+it first, then let the measurement stack adjudicate.
+
+```bash
+# predict_blocks reads a SUPERSET of genuine_modes' spec, so one file can
+# drive both — but they read different keys (partons/born vs
+# chain/flavours) and the flavour info is NOT cross-validated between
+# them. Keep them in sync by hand, or keep two files.
+python .claude/skills/write-spike-test/scripts/genuine_modes.py spec.json --json > modes.json
+python .claude/skills/write-subtraction/scripts/predict_blocks.py spec.json --modes modes.json
+python .claude/skills/write-subtraction/scripts/predict_blocks.py spec.json --emit-markers > master.map
+python .claude/skills/write-subtraction/scripts/predict_blocks.py spec.json --audit TERM.map
+python .claude/skills/write-subtraction/scripts/predict_blocks.py --selftest
+```
+
+It prints, per unresolved pair, the colour-connection class and the
+block it implies; per line, the sign, the FF/IF/FI/II configuration, the
+antenna family hint and the expected coefficient. `--emit-markers`
+writes a `# block:`-marked skeleton that feeds straight into
+`map_blocks.py`; `--audit` compares a written `.map` back against the
+prediction and reports missing, extra and mis-counted blocks.
+
+**The one fact it encodes** (hep-ph/0505111 §2.3.1): `dσ^{S,a}` alone
+**vanishes** in genuinely colour-connected double-unresolved limits and
+yields **exactly twice** the matrix element in the other three classes.
+Hence S,b1 is `+` (S,a left a hole) while S,c and S,d are `−` (S,a
+over-filled it). **If a line seems to want the opposite sign, the
+CLASSIFICATION is wrong, not the sign.** Derivation:
+`references/block-counting.md` §1.
+
+Two consequences worth carrying:
+
+- **Counts are fixed, not discovered**: two S,b2 lines per X40 (one per
+  single-unresolved limit of that X40), two S,c lines per
+  almost-connected pair (both strong orderings), one S,d line per
+  **unordered** disjoint pair — no product of two antenna
+  configurations may appear twice.
+- **Coefficients come from a small discrete rational set**, because an
+  antenna is a normalised colour-ordered ME of a parent process. The
+  observed set across `maple/form/common/J21.map` and `J22.map` is
+  `{2, 1, 2/3, 1/2, 1/3, 1/4, 1/9}` — note it is **not** all unit
+  fractions (`2*calC40FF` and `-2/3*calG30FF*calF30FF` are both live in
+  `J22.map`). Use it as a MEMBERSHIP test on a fitted coefficient, never
+  as a prediction of which member applies: a fit landing outside the set
+  means the basis is incomplete, an argument order is wrong, or the
+  structure is wrong — not that the fitted number should be written
+  down. Derivation and the per-antenna table:
+  `references/block-counting.md` §5.
+
+**Scope, so it is not over-trusted.** The prediction is per COLOUR
+ORDERING (adjacency is the right criterion for block assignment inside
+one ordered line, and the wrong one for deciding which limits are
+genuine — the two uses are opposite, see step 1 below); counts are
+per-ordering upper bounds. It does not predict antenna letters, slot
+conventions, which X40 to use, or reduced-ME argument orders. Those are
+measured, as before.
+
+Full derivation, the colour-neighbouring sub-class, the half-eikonal
+rule and the free static checks: `references/block-counting.md` (load
+when a block's existence, sign or count is in question, or when a
+prediction and a measurement disagree).
 
 ## Building the lines: from the ME's infrared limits
 
@@ -159,6 +252,28 @@ the probe-me-ir-structure skill fits ME/redME onto a dipole basis and
 returns exact rational coefficients in minutes. It answers which
 dipoles the S,a block needs, f1↔f2 symmetry questions, and coefficient
 normalisations, before any line is written.
+
+**Measurement ADJUDICATES the rung-0 prediction; it does not replace
+it.** Come to every fit with an expected answer — the block, the sign
+and the coefficient family from rung 0 — and treat the fit as a
+hypothesis test rather than an open question. The three outcomes are
+diagnostic, and the third is the one that is otherwise missed:
+
+- fit returns the predicted rational → confirmed, proceed;
+- fit returns a different member of the family (`1/2` where `1` was
+  predicted) → a symmetry factor or a Full-vs-split question; local,
+  fix the line;
+- fit lands **outside** the family, or refuses on rank-deficiency → do
+  NOT write the fitted number. Either the basis is incomplete, a
+  reduced-ME argument order is wrong, **or the block structure itself is
+  wrong** — and only a prediction to compare against makes that third
+  cause visible at all. Re-run `predict_blocks.py --audit` on the file
+  before touching coefficients.
+
+Judge membership, not decimals: `0.667` is `2/3`, a live coefficient,
+while `0.7` is nothing. Collinear fits are only good to ~3 digits
+(probe-me-ir-structure), so decide against the rational set, never
+against a decimal threshold.
 
 The line list is DERIVED from the full ME, not invented:
 
@@ -233,6 +348,32 @@ The line list is DERIVED from the full ME, not invented:
      for overlaps that do not exist, which destroys limits that were
      previously exact.)
 
+     **Reconciling this with rung 0.** These are two different counts,
+     not a disagreement. The rule REJECTED above is "one counterterm per
+     term in the reduced ME's NLO subtraction" — that remains wrong.
+     What rung 0 fixes is a different quantity: TWO per X40 per colour
+     ordering, one for each single-unresolved limit **of that X40**
+     (eq. 2.17 subtracts `X30_{ijk}X30_{IKl}` *and* `X30_{jkl}X30_{iJL}`)
+     — and that is precisely what the pole graphs must reproduce. Use
+     rung 0's number as the per-ordering expectation and the pole graphs
+     to resolve the multiplicity across sectors and orderings; if the
+     two differ by more than the number of orderings, one is wrong and
+     it is worth finding out which before building.
+
+     **The colour-neighbouring case, where pole-sharing under-counts.**
+     Inside the colour-connected class there is a sub-case (0505111
+     §2.3.1): two neighbouring pairs going collinear independently —
+     one pair inside the antenna, the other formed by the remaining
+     antenna momentum and its colour-connected neighbour. There the
+     `X30×X30` products are NOT vanishing; each equals the double
+     unresolved limit, and the line has a SECOND job beyond cancelling
+     the X40's spurious single: it cancels S,a's DOUBLED double limit.
+     Pole-sharing sees only the first job. `predict_blocks.py` flags
+     these pairs `[COLOUR-NEIGHBOURING]`. Empirical signature of
+     missing it: all single-unresolved modes pass, the colour-connected
+     double limits pass, and a DOUBLE-COLLINEAR mode whose two clusters
+     are chain-adjacent sits near 2 (or near 0.5) rather than 1.
+
      **The two writings of an iterated counterterm are NOT
      equivalent.** An overlap between two S,a lines can be written
      with either antenna first, the second evaluated on the first's
@@ -263,6 +404,25 @@ The line list is DERIVED from the full ME, not invented:
      numerically that the candidate SS combination reproduces that
      difference BEFORE writing it into the `.map`.
 
+     **Two structural rules that decide most of it before measuring.**
+     (i) *Half-eikonal / sub-antenna rule* (0505111 eq. 2.24): S,c uses
+     a SUB-antenna `x30`, not a Full composite. The sub-antenna
+     contains only the `m∥l` collinear limit and NOT `l∥K`, and yields
+     **half** the soft eikonal in the `l`-soft limit. The reason is the
+     usable criterion: **`K` is a MAPPED momentum, and the matrix
+     element has no collinear limit with a mapped momentum** — a Full
+     antenna would be singular where the ME is finite, a spurious
+     singularity no counterterm can repair. Generalised: *a mapped
+     momentum must never appear as a collinear partner in a subtraction
+     line.* That test picks the half; the pole graph then confirms what
+     it covers. (ii) *The eikonal's hard legs are free*: in `S_abc =
+     2·s_ac/(s_ab·s_bc)` the hard momenta `a, c` **need not be the
+     antenna's own radiators** (0710.0346) — which is why the block can
+     mix momentum sets at all, and why `SS1` takes a `(jpset, ipset)`
+     pair rather than one kinematics index (wiring below).
+     Count: **two S,c lines per almost-connected pair per colour
+     ordering**, one per strong ordering (eq. 2.24 writes both).
+
      **S,c wiring at the Fortran level** (none of it inferable from
      `notation.map`; a reduced tree may contain no surviving example
      to pattern-match, so the accepted syntax and its emitted Fortran
@@ -289,7 +449,11 @@ The line list is DERIVED from the full ME, not invented:
    - **S,d** — COLOUR-UNCONNECTED pair (two disjoint dipoles): a plain
      product `X30 × X30 × M_{n-2}`, one line per pair of DISJOINT
      clusters that are each singular (pole graphs again) — nothing
-     genuinely new at NNLO, but the lines must be there. **Diagnostic
+     genuinely new at NNLO, but the lines must be there. The sum is
+     over **UNORDERED** pairs: the paper's restriction is explicit
+     (0505111 eq. 2.26, *"such that no product of two antenna
+     configurations appears twice"*), so a double sum over both
+     clusters double-counts every line. **Diagnostic
      signature of a missing S,d**: the double-collinear (and
      double-soft-adjacent) modes of DISTINCT radiator pairs fail while
      all single limits and the colour-connected double limits pass,
@@ -331,7 +495,20 @@ The line list is DERIVED from the full ME, not invented:
    reduced-Born rule must be covered by at least one line, AND every
    reduced ME in the FLAVlist entry must appear in the file — a
    FLAVlist ME with no corresponding line is a missing sector (the
-   exact failure mode of forgetting an f2 block). The check program's
+   exact failure mode of forgetting an f2 block). Add the structural
+   half of the check, which costs nothing:
+
+   ```bash
+   python .claude/skills/write-subtraction/scripts/predict_blocks.py \
+          spec.json --modes modes.json --audit <TERM>.map
+   ```
+
+   It reports blocks predicted but absent (`MISSING`), present but not
+   predicted (`EXTRA` — either a second colour ordering or a spurious
+   block), and line-count mismatches. Counts are per-ordering upper
+   bounds, so a colour-summed term may legitimately differ by a factor
+   equal to the number of orderings — investigate any other
+   discrepancy before generating. The check program's
    mode list (`stitle`) is a superset checklist — apply the rule to
    classify each mode (run-spike-test carries the same rule plus the
    empirical verdict via the |wt1| scaling exponent), then demand
@@ -377,6 +554,36 @@ limits while looking locally correct. Measure each half's pole graph
 and confirm their UNION covers every limit the block is responsible
 for. A half with fewer poles is not "safer" — it is incomplete.
 
+Three rules that let you PREDICT the split instead of only verifying
+it — apply them first, then measure to confirm:
+
+1. **One soft limit per sub-antenna; a `g→gg` collinear shared between
+   two.** That is the split rule, and it follows from what an antenna
+   is (a normalised colour-ordered ME of a parent process, split into as
+   many configurations as the parent has radiator-pair choices) — so it
+   applies to an antenna you have never seen. Provenance and the
+   coefficient table: antennae-naming-convention.
+2. **No mapped momentum as a collinear partner** (the general form of
+   the S,c half-eikonal rule above): the half whose collinear limits all
+   involve genuine, unmapped legs is the correct one.
+3. **Angular averaging must close within a SINGLE phase-space
+   mapping.** 0710.0346 §3.4: *"this average has to take place within
+   each phase space mapping."* This is a DESIGN constraint on the
+   split, not just a property of the spike-test harness: a split that
+   sends one collinear limit through two different mappings is NOT
+   rescued by averaging afterwards, however well the union of pole
+   graphs looks. The authors state they checked this explicitly for the
+   decompositions of `E40` and `D40`. Symptom: a `g→gg` or `g→qq̄`
+   collinear mode whose spread does not narrow as x decreases even
+   though `rotp` averaging is on (run-spike-test reads this as an
+   "azimuthal-rotation issue" — if the term splits a composite, suspect
+   the split, not the harness).
+
+Related: angular averaging is not always SUFFICIENT either. In some
+colour factors it leaves uncancelled 1/ε poles, and that failure is the
+historical origin of the large-angle soft (S,c) blocks — see
+`references/block-counting.md` §4.
+
 ## Finding a precedent for an antenna
 
 To see how an antenna has been used before, grep for it across
@@ -400,6 +607,7 @@ means renumbering everything below. Use the block composer instead:
 
 ```bash
 # master file: your .map with '# block: <name>' comment markers
+# (predict_blocks.py --emit-markers writes a starting master for you)
 python .claude/skills/write-subtraction/scripts/map_blocks.py list  master.map
 python .claude/skills/write-subtraction/scripts/map_blocks.py compose master.map \
        --blocks Sa,Sb1,Sb2_f1 -o <TERM>.map      # renumbers aN gap-free
@@ -462,11 +670,20 @@ Then validate as usual; the untouched-sibling control channel in
 run-spike-test is what separates crossing artefacts from harness
 effects.
 
-(A fully worked instance of this whole workflow lives in
-`references/worked-example-C1g0ZepemS.md` — it contains EXERCISE
-ANSWERS for the reset-C1g0ZepemS clean-room rebuild; do not load it
-unless the user explicitly asks, and withhold it when that rebuild is
-run as a test.)
+(A fully worked instance of this whole workflow belongs in
+`references/worked-example-C1g0ZepemS.md` — WHEN PRESENT. It contains
+EXERCISE ANSWERS for the reset-C1g0ZepemS clean-room rebuild, so it is
+routinely quarantined out of the repo; do not load it unless the user
+explicitly asks, and withhold it when that rebuild is run as a test. If
+the file is absent, that is the quarantine, not a broken link.)
+
+(`references/block-counting.md` carries the scheme-level derivation —
+the factor-of-two counting argument, the colour-neighbouring sub-class,
+the half-eikonal rule, the coefficient family, and the static checks the
+papers give for free. It contains no process-specific answers, so it is
+safe to load during a clean-room rebuild; load it when a block's
+existence, sign or count is in question, or when a prediction and a
+measurement disagree.)
 
 ## Structural patterns per contribution type
 
@@ -492,8 +709,11 @@ to which class — regenerate and inspect it when debugging structure.
 ## Fixing a term after a failed spike test
 
 The failing mode reported by run-spike-test names the limit (e.g.
-"5||6 collinear", "6 soft", "triple collinear 567"). Use the mode→block
-diagnosis in run-spike-test first: only blocks whose antennae have a
+"5||6 collinear", "6 soft", "triple collinear 567"). **Re-run rung 0
+first** — `predict_blocks.py --audit <TERM>.map` costs seconds and, if
+a whole block is missing or an extra one is present, tells you so
+before any per-line reasoning. Then use the mode→block
+diagnosis in run-spike-test: only blocks whose antennae have a
 pole in that mode's invariants can be responsible, the ratio's
 CHARACTER (stable offset vs wide spread vs tails) narrows the error
 class, and block bisection with the composer above plus the

@@ -21,7 +21,8 @@ approaches 1 asymptotically as the infrared parameter x decreases
 GENUINE limit of the channel** — the mode lists also probe
 configurations that are not limits at all (see classification below).
 
-Cheap lookups first (full ladder in write-subtraction): name lookups
+Cheap lookups first (full ladder in write-subtraction): derive the block
+skeleton (`predict_blocks.py`) → name lookups
 (me-/antennae-naming-convention) → static scans (`genuine_modes.py`,
 `antenna_slots.py`, precedent grep) → one-run measurements (per-line
 attribution below, pole scan, dipole fit) → residue fits → build
@@ -155,7 +156,12 @@ Check across the three x values:
   - ratio oscillates around 1 without narrowing in a g→gg or g→qqb
     collinear limit → azimuthal-rotation issue (see
     `doc/process/VFH/texfiles/spikesAndRotation.tex`), not necessarily a
-    wrong .map;
+    wrong .map — **unless the term splits a `Full` composite**, in which
+    case suspect the split: the angular average must close WITHIN a
+    single phase-space mapping (arXiv:0710.0346 §3.4), so a split that
+    sends one collinear limit through two different mappings is not
+    rescued by averaging afterwards, however well the union of pole
+    graphs looks (write-subtraction, Full-composite splitting);
   - NaN counters → broken momentum mapping.
 
 ### Classify every mode BEFORE reading ratios
@@ -231,6 +237,11 @@ used; if the deepest x went unstable, say so in the affected rows
 Deciding WHICH block of the subtraction is responsible is a procedure,
 not an improvisation:
 
+0. **Re-audit the structure** (seconds, no run):
+   `predict_blocks.py spec.json --modes modes.json --audit <TERM>.map`
+   (write-subtraction). A whole missing or spurious block explains a
+   failure that per-line reasoning will otherwise chase for hours; it
+   exits non-zero on a mismatch.
 1. **Shortlist by pole graph.** List the blocks whose antennae have a
    pole in the failing mode's invariants (measure with the
    probe-me-ir-structure pole scan if not already known). Only those

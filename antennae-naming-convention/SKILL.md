@@ -22,8 +22,11 @@ description: >
 Authoritative token dictionary: `maple/notation.map` (sets `ant30set`,
 `ant31set`, `ant40set`, `SSset`; rendered as `maple/notation.pdf`).
 Fortran implementations: `src/X30` (tree 3-parton), `src/X31` (one-loop
-3-parton), `src/X40` (tree 4-parton), `src/X30int/{FF,IF,FI,II}`
-(integrated antennae, split by configuration).
+3-parton), `src/X40` (tree 4-parton), `src/X30int/` (integrated
+antennae — a FLAT directory of 14 generated files, configuration is a
+filename SUFFIX not a subdirectory: `autoX30FFint.f`, `autoX30IFint.f`,
+`autoX30FIint.f`, `autoX30IIint.f`, `autoJ21{FF,IF,FI,II}.f`,
+`autoP0IF.f`, `autoP0FI.f`).
 
 **Species vs convention — the one-line rule: before USING an antenna
 you have not used before, run the pole scan
@@ -137,6 +140,66 @@ it is incomplete. This is the central trap when deriving a term by
 crossing an existing one — procedure and symptoms in
 write-subtraction.
 
+## Where the letters come from — and what that predicts
+
+Antennae are not functions built by imposing limits. They are
+**normalised colour-ordered matrix elements of a parent process**
+(hep-ph/0505111 §1: *"If normalised appropriately, these full
+four-parton tree-level and three-parton one-loop matrix elements can be
+interpreted as antenna functions at NNLO"*), and the letter records
+which parent:
+
+| letters | parent process | hard radiators |
+|---|---|---|
+| `A`, `B`, `C` | `γ* → qq̄ + partons` | quark–antiquark |
+| `D`, `E` | `χ̃ → g̃g + partons` (Haber–Wyler effective Lagrangian) | quark–gluon |
+| `F`, `G`, `H` | `H → gg + partons` via `L = −(λ/4) H F²` | gluon–gluon |
+
+Two things follow that are otherwise only discoverable by measurement:
+
+**1. The normalisation is 1/(number of antenna configurations the parent
+contains).** hep-ph/0502110, on the gluonic case: the `H→ggg` matrix
+element *"contains three different antenna configurations … the effect
+of the symmetrisation over the three gluons is that these three antenna
+configurations are averaged over."* This reproduces the FF block of
+`maple/form/common/J21.map` exactly (note the quark-loop/`N_F` family
+carries an infix **`h`** — grep `J21hQGFF`, not `J21_NF`):
+
+| antenna | parent | configs | J21 entry |
+|---|---|---|---|
+| `A30` | `γ*→qq̄g` | 1 (quark endpoints fixed) | `J21QQFF = calA30FF` |
+| `D30` | `χ̃→g̃gg` | 2 (either gluon outermost) | `J21QGFF = 1/2*calD30FF` |
+| `E30` | `χ̃→g̃q'q̄'` | 2 | `J21hQGFF = 1/2*calE30FF` |
+| `F30` | `H→ggg` | 3 (cyclic) | `J21GGFF = 1/3*calF30FF` |
+| `G30` | `H→gqq̄` | 1 | `J21hGGFF = calG30FF` |
+
+**Use**: a dipole or residue fit should land in the small rational set
+observed across `J21.map` and `J22.map` — `{2, 1, 2/3, 1/2, 1/3, 1/4,
+1/9}`. It is **not** all unit fractions: `J22tQQFF` contains
+`+2*calC40FF` and `J22hGGFF` contains `-2/3*calG30FF*calF30FF`. A
+non-member is a diagnostic, not a number to write down.
+
+**The X40 coefficients are not derivable from this rule** — read
+`maple/form/common/J22.map` for the case at hand. Its FF block alone
+gives `calA40FF` 1, `1/2*calD40FF`, `calE40FF` 1, `calG40FF` 1,
+`1/2*calH40FF`, `calB40FF` 1, `2*calC40FF`, `1/4*calF40FF`,
+`1/2*calAt40FF`, `1/2*calEt40FF`, `1/2*calGt40FF`.
+
+**2. The Full-composite split is predictable.** hep-ph/0502110: *"the
+matrix element has to be split into three individual antenna
+configurations. **Each individual antenna configuration contains only
+one soft limit.** Each collinear `g→gg` is **split between the two
+antenna configurations** appropriate to the two final-state gluons
+involved in the splitting."* So a soft limit belongs to exactly one
+half, and a `g→gg` collinear is shared by two. That predicts the split
+for an antenna you have never seen — then measure the halves' pole
+graphs to confirm (the measure-before-you-use rule stands; what changes
+is that you now arrive with an expected answer).
+
+Neither point overrides the species-vs-convention rule above: provenance
+fixes normalisation and limit content, **not** which argument slot is
+which.
+
 ## Letter ↔ radiators ↔ limits subtracted
 
 The letter encodes the hard-radiator pair and the unresolved
@@ -196,21 +259,81 @@ block reappears integrated one layer up (the figure's arrows):
   poles.
 
 **Colour connection of an RR pair decides its block** (the criterion,
-hep-ph/0505111): colour-connected (radiators shared between the two
-unresolved partons) → one X40 (S,b1); almost-colour-connected
-(separated by a single hard radiator) → iterated X30×X30 + SS soft
-correction (S,b2+S,c); colour-unconnected (disjoint dipoles) → plain
-product (S,d). At subleading colour the classification applies per
-colour structure — the tilde antennae implement the 1/nc tower
-(full-colour dijets: arXiv:1310.3993).
+hep-ph/0505111 §2.3): colour-connected (radiators shared between the two
+unresolved partons) → one X40 (S,b1) plus two iterated X30×X30
+counterterms (S,b2); almost-colour-connected (separated by a single hard
+radiator) → two lines, one per strong ordering, carrying the SS soft
+correction (S,c); colour-unconnected (disjoint dipoles) → plain product,
+**unordered** pairs only (S,d). At subleading colour the classification
+applies per colour structure — the tilde antennae implement the 1/nc
+tower (full-colour dijets: arXiv:1310.3993).
 
-**Integrated objects**: `SSset = {SFF, SIF, SFI, SII}` — soft eikonal
-functions (`src/X30/SS*.f`). Every unintegrated antenna has an
-integrated counterpart in the virtual layers: X30 ↔ `J21*` integrated
-dipoles (`J21QGFF`, `J21GQFI`, ..., `maple/form/common/J21.map`),
-X40/X31 ↔ `J22*`; assembled into the `J2^(ℓ)` operators, which absorb
-the mass factorisation for initial states and are related to Catani's
-I operators. Implementations: `src/X30int/<config>/`. This bookkeeping
+**The signs are derived, not conventional.** `dσ^{S,a}` alone vanishes
+in genuinely colour-connected double limits and yields **exactly twice**
+the matrix element in the other three classes (the double limit needs
+both the antenna's unresolved leg and one other momentum, and their
+roles interchange). So S,b1 is `+` because S,a left a hole, and S,c/S,d
+are `−` because S,a over-filled it. Full argument, plus the
+**colour-neighbouring** sub-case hiding inside the colour-connected
+class — where the X30×X30 products do NOT vanish and pole-sharing
+under-counts — in write-subtraction's `references/block-counting.md`.
+This classification is emitted mechanically by
+`.claude/skills/write-subtraction/scripts/predict_blocks.py`.
+
+**Provenance caveat on S,c.** hep-ph/0505111 has NO large-angle soft
+term; its decomposition is exactly `S = a+b+c+d` with no eikonal object.
+The SS blocks were introduced in the revised arXiv:0710.0346 because
+*"the angular averaging is not sufficient to cancel the 1/ε poles"* in
+some colour factors — i.e. the subtraction terms themselves introduce
+spurious large-angle soft limits. arXiv:1301.4693 then folded them into
+S,c, which is the grouping the repo uses. Practical consequence: an
+uncancelled 1/ε where the angular average "should" have worked may be a
+missing S,c/LAST block rather than a broken antenna.
+
+**Integrated objects**: `SSset = {SFF, SIF, SFI, SII}` are MAPLE tokens,
+and there is no 1:1 Fortran file per token — the tree has three
+unintegrated soft functions (`src/X30/SS.f`, `SS1.f`, `SSII.f`) and
+three integrated ones (`src/X30int/SSint.f`, `SSintIF.f`, `SSintFI.f`;
+no `SSintII.f`). `SS1(j1,i3,j2,jpset,ipset)` is the eikonal
+`2·s_{j1j2}/(s_{i3j1}·s_{i3j2})` with the radiators on the `jpset`
+momenta and the soft leg on the `ipset` ones — mapped and unmapped legs
+mixed in one call, which is the point (see write-subtraction's S,c
+section). Documented in `doc/LAST/SSintIF.tex` ("LAST" = large-angle
+soft term).
+
+Every unintegrated antenna has an integrated counterpart in the virtual
+layers: X30 ↔ `J21*` integrated dipoles (`J21QGFF`, `J21GQFI`, ...,
+defined in `maple/form/common/J21.map`, Fortran in
+`src/X30int/autoJ21*.f`), X40/X31 ↔ `J22*` (defined in
+`maple/form/common/J22.map`); assembled into the `J2^(ℓ)` operators,
+which absorb the mass factorisation for initial states and are related
+to Catani's I operators.
+
+**Mass factorisation lives INSIDE the J21/J22 definitions**, not in a
+separate module (there is none in `driver/core/`). The live token names
+are `gamma1qq(z1)`, `gamma1gg(z1)`, `gamma2gq(z1)`, ... plus `P0set` /
+`P1set` — declared in `maple/notation.map` (`gamma1set`, `gamma2set`,
+~lines 338–408). Grep for `gamma1`, not for `Gamma`/`MF`/`massfact`,
+which do not exist. The absorption pattern is visible in
+`maple/form/common/J21.map`: the kernel attaches to the dipole touching
+that initial leg, with a factor matching the antenna's own coefficient,
+and a **minus sign** for identity-changing dipoles; FF entries and
+N_F-type dipoles carry no kernel at all:
+
+```
+J21QQIF(1,3)     = calqA30IF(1,3)      - gamma1qq(z1)
+J21GQIF(1,3)     = calgD30gqIF(1,3)    - 1/2*gamma1gg(z1)
+J21QQgtoqIF(1,3) = -1/2*calgA30IF(1,3) - Sgtoq*gamma1qg(z1)
+J21QQFF(3,4)     = calA30FF(3,4)                      # FF: no kernel
+```
+
+Fortran side: `src/X30int/autoP0IF.f`, `autoP0FI.f`.
+
+**There is no J22 Fortran.** No `src/X40int/`, no `src/X31int/`, no
+`*40*int` symbols anywhere in `src/`. J22 exists only in the FORM layer
+(`maple/form/common/J22.map` → `autoJ22.frm`, `autoJ22.h`, `doJ22`;
+catalogue in `doc/J22/J22_catalog.tex`) and is consumed by the pole
+check. Do not go looking for it under `src/`. This bookkeeping
 — crossings and symmetry factors included — is exactly the Fig.-3
 arrow structure that run-layer-check verifies per process; its failure
 residues are printed in this language (leftover `calX30`/`J21` symbols
@@ -234,7 +357,8 @@ configuration for another.
    `ant31set` / `ant40set` — grep the exact name; makeproc and
    makefortRR key on exact names).
 3. Implementation: `src/X30|X31|X40/<Full...>.f`; integrated partner:
-   `src/X30int/<config>/`; symbolic `cal*` names:
+   `src/X30int/autoX30<config>int.f` / `autoJ21<config>.f` (flat dir,
+   suffix not subdir); symbolic `cal*` names:
    `test/layer_check/include/X30.inc` etc.
 4. Usage precedent: grep the exact name across `maple/process/`,
    `src/process/` and `driver/process/` INCLUDING generated `auto*.f`

@@ -47,6 +47,39 @@ All three name their limits in ONE mode vocabulary
 of hand-writing the generator call; verbatim `limit_call` remains the
 escape hatch.
 
+## Arrive with an expected answer
+
+**Predict first, then measure.** Before any fit, run rung 0 of
+write-subtraction:
+
+```bash
+python .claude/skills/write-subtraction/scripts/predict_blocks.py spec.json
+```
+
+It costs seconds and tells you
+which block the line belongs to, its sign, and the rational family its
+coefficient must live in. A fit with an expected answer is a hypothesis
+test; a fit without one silently absorbs structural errors as fitted
+numbers.
+
+**The coefficient family.** Antennae are normalised colour-ordered MEs
+of a parent process, so fitted coefficients come from a small discrete
+set — observed across `maple/form/common/J21.map` and `J22.map`:
+`{2, 1, 2/3, 1/2, 1/3, 1/4, 1/9}`. It is **not** all unit fractions
+(`2*calC40FF`, `-2/3*calG30FF*calF30FF`). Derivation and the per-antenna
+table: antennae-naming-convention. Read the three outcomes as:
+
+| fit returns | meaning | action |
+|---|---|---|
+| the predicted rational | confirmed | proceed |
+| a different family member (`1/2` for `1`) | symmetry factor, or a Full-vs-split question | local fix to the line |
+| something outside the set, or rank-deficiency refusal | basis incomplete, reduced-ME argument order wrong, **or the block structure is wrong** | do NOT write the number down; re-audit the structure first |
+
+The third row is what a bare measurement cannot distinguish. Judge
+membership, not decimals — `0.667` is `2/3` and fine; collinear fits are
+only good to ~3 digits (below), so a decimal threshold would reject real
+coefficients.
+
 ## The measure-before-you-use rule
 
 **Before using an antenna you have not used before, run the pole
@@ -119,9 +152,10 @@ rank-deficiency refusal.
 
 ## Confidence — state of validation
 
-- **Soft limits: high confidence.** Expect EXACT RATIONALS.
-  Non-rational output means the basis is incomplete or a reduced-ME
-  argument order is wrong — that is itself the diagnostic.
+- **Soft limits: high confidence.** Expect EXACT RATIONALS, and
+  specifically members of the family above. Non-rational output means
+  the basis is incomplete, a reduced-ME argument order is wrong, or the
+  block structure is wrong — that is itself the diagnostic.
 - **X40-level fits in double-unresolved limits: VALIDATED.** They
   behave exactly like the soft-gluon case — exact rational
   coefficients, residuals at the 1e-14 level.

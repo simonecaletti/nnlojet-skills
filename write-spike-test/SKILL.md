@@ -38,6 +38,21 @@ pairs with IDENTICAL momentum arguments. `genuine_modes.py` is also the
 per-mode checklist the whole validation hangs on: run it before reading
 any spike-test output (run-spike-test applies the same rule).
 
+**Second consumer**: `predict_blocks.py` (write-subtraction, rung 0)
+reads `genuine_modes.py --json` output to decide which legs admit an
+unresolved limit — without it, it falls back to a rule that over-counts.
+It reads a SUPERSET of this spec, so one file can drive both, but note
+the two use different keys: this script reads `partons` (final state
+only) and `born`; `predict_blocks.py` reads `chain` (the full colour
+ordering, initial legs included) and `flavours`. The flavour information
+therefore appears twice and is NOT cross-validated — keep them in sync
+by hand, or keep two files.
+
+```bash
+python .claude/skills/write-spike-test/scripts/genuine_modes.py spec.json --json > modes.json
+python .claude/skills/write-subtraction/scripts/predict_blocks.py spec.json --modes modes.json
+```
+
 What the generated program does for you:
 - **CLI** `./check ITYPE [MODELO MODEHI] [IPOINT] [ILOW]` with a usage
   line — no edit+recompile cycle to narrow a run;
