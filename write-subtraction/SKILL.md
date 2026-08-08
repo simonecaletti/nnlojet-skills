@@ -22,6 +22,30 @@ limit for R, plus double-unresolved and one-loop×single limits for RR/RV.
 A spike-test failure in a specific limit means the term line(s) covering
 that limit are wrong or missing.
 
+## Cost ladder — cheap lookups first
+
+Before re-deriving anything by measurement or build cycle, walk this
+ladder from the top; each rung answers in seconds what the rung below
+answers in minutes-to-hours:
+
+1. **Name lookups** — me-naming-convention (ME grammar, crossing
+   relatives), antennae-naming-convention (species, layer,
+   FF/IF/FI/II correspondences); list-channels / list-processes for
+   what exists.
+2. **Static scans** — `antenna_slots.py` (slot plumbing,
+   antennae-naming-convention), `genuine_modes.py` (which modes are
+   real, write-spike-test), precedent grep over generated `auto*.f`
+   (section below).
+3. **One-run measurements** — per-line attribution
+   (`wt_attribute.py`, run-spike-test), pole scan, dipole fit
+   (probe-me-ir-structure).
+4. **Multi-run measurements** — residue fits (probe-me-ir-structure
+   mode 3).
+5. **Build cycles** — the block composer below plus
+   autogen-subtraction's regenerate+rebuild wrapper. Never hand-roll
+   the regenerate–restore–rebuild sequence; the wrapper is that
+   sequence.
+
 ## Where things live
 
 - `maple/process/<DIR>/*.map` — one dir per maple-level process.
@@ -96,6 +120,21 @@ Every line of `XX` is:
 
 Optional: `colflag:=true:` (groups several reduced MEs under one antenna),
 `XX:=expand( ... ):` in some RV files.
+
+**Comment discipline — a `.map` is source, not a notebook:**
+
+- The file HEADER carries only what is needed to READ the file: the
+  process line, the momentum/flavour assignment of the `FN` arguments,
+  and the reduced-ME conventions. A few lines.
+- Inside `XX:=`, ONE comment line per BLOCK of subtraction lines,
+  stating the block's origin (which limit family or colour structure
+  it comes from) — the same `# block: <name>` markers the composer
+  uses. No per-line commentary.
+- NO status, validation results, diagnosis, or to-do lists in the
+  `.map`. Those belong in the chat summary (run-spike-test's limit
+  table) and, if they must persist, in a separate notes file — never
+  in the term. A session that has just debugged a term must REMOVE its
+  scratch commentary before finishing.
 
 ## Building the lines: from the ME's infrared limits
 
@@ -193,6 +232,25 @@ The line list is DERIVED from the full ME, not invented:
      unresolved sector; with several sectors it generates counterterms
      for overlaps that do not exist, which destroys limits that were
      previously exact.)
+
+     **The two writings of an iterated counterterm are NOT
+     equivalent.** An overlap between two S,a lines can be written
+     with either antenna first, the second evaluated on the first's
+     mapped momenta — and the two writings are numerically different
+     objects; the wrong one over-subtracts by an O(1) factor, not a
+     small residue. The choice is determined, not free: **the correct
+     writing is the one that is regular in every single-unresolved
+     limit that the other antenna alone already reproduces exactly.**
+     Decide it by measurement, in one run per candidate, without
+     composing a new term: test both writings with per-line
+     attribution (run-spike-test's `wt_attribute.py`) in the affected
+     single-unresolved modes, or fit both as basis entries in a
+     residue fit (probe-me-ir-structure mode 3) — the wrong one is
+     not rational. Empirical signature: correct ordering →
+     `1.000000` with zero outliers in the affected single-unresolved
+     modes; wrong ordering → a large-magnitude, often sign-flipped
+     ratio in exactly those modes, while the DOUBLE-unresolved modes
+     may still look plausible (they do not discriminate).
    - **S,c** — ALMOST-COLOUR-CONNECTED pair (separated by one hard
      radiator): a large-angle soft correction, written as SS-difference
      blocks multiplying `X30 × M` lines, shape
@@ -203,14 +261,31 @@ The line list is DERIVED from the full ME, not invented:
      fit the soft residue of the X40 and of the iterated product
      separately (residue fitter) and take the difference; then confirm
      numerically that the candidate SS combination reproduces that
-     difference BEFORE writing it into the `.map`. Fortran facts
-     needed for that measurement (not inferable from `notation.map`):
-     `SS(i1,i3,i2,ipset)` takes the two radiators i1,i2 evaluated on
-     `kin(ipset)`; the middle argument only NAMES the soft leg — the
-     actual soft momentum is read from `common /soft/ psoft(4)`, which
-     the caller must fill from the unmapped kinematics.
-     `SS1(j1,i3,j2,jpset,ipset)` is the variant with radiators on a
-     reduced (mapped) momentum set.
+     difference BEFORE writing it into the `.map`.
+
+     **S,c wiring at the Fortran level** (none of it inferable from
+     `notation.map`; a reduced tree may contain no surviving example
+     to pattern-match, so the accepted syntax and its emitted Fortran
+     are carried as assets in this skill:
+     `assets/sc_block_skeleton.map` + `assets/sc_block_emitted.f`):
+     the generator routes a term through the soft path when its
+     antenna content is SS-set functions times at most one X30
+     (makefortRR branches "sum SS * MM0" / "X30 * sum SS * ML0",
+     which toggle `insoft` and take the soft leg from the SS middle
+     argument), emitting a `wtsoft` accumulation of
+     `SS1(j1,i3,j2,jpset,ipset)` calls — radiators j1,j2 on the
+     MAPPED set, soft leg i3 on the ORIGINAL set, invariants from the
+     `s{ipset}on{jpset}` cross-set commons filled by the `fillson*`
+     calls of the emitted set_map chain, which the caller must
+     guarantee ran. `SS(i1,i3,i2,ipset)` is the unmapped-radiators
+     variant: it reads the soft momentum from `common /soft/
+     psoft(4)`, filled by `makesoft(i1,ipset)` (src/map/libmap.f) —
+     which currently has NO caller in the tree, so a hand-written
+     probe using `SS` must call it itself. Verify a new S,c block BY
+     REGENERATING, not by assertion: find any process with an SS
+     block (`grep -rl 'SFF(' maple/process --include='*S.map'`), run
+     `makeRRcheck`/`makefortRR` for it, and compare the emitted
+     `wtsoft` block against the asset's shape and your own.
    - **S,d** — COLOUR-UNCONNECTED pair (two disjoint dipoles): a plain
      product `X30 × X30 × M_{n-2}`, one line per pair of DISJOINT
      clusters that are each singular (pole graphs again) — nothing
@@ -229,11 +304,16 @@ The line list is DERIVED from the full ME, not invented:
    failure signatures of partial builds: S,a alone → soft-gluon mode
    reads ~0.4 (X30×M lines still contain the gluon in their reduced
    ME); S,a + iterated only → WORSE, negative O(1) ratios. All three
-   together → 1.000000 first try. Consistency check on the pairing:
-   per flavour sector, the X40 lines' coefficients must sum against
-   the corresponding iterated `−X30×X30` lines' coefficients (equal
-   sums — e.g. both 1); verify the sums directly in your file rather
-   than trusting any single reference file to exist.
+   together → 1.000000 first try. Consistency check on the pairing —
+   **per pole of the X40, not per X40**: a single X40 can have one
+   pole cancelled by one family of iterated terms and another pole by
+   a different family, so a global "X40 coefficients sum against
+   iterated coefficients" rule is neither necessary nor sufficient.
+   Enumerate the X40's poles (mode-2 pole scan,
+   probe-me-ir-structure); for EACH pole, the coefficients of the
+   iterated lines sharing that pole must sum against the X40's
+   coefficient on that pole. Verify the per-pole sums directly in
+   your file rather than trusting any single reference file to exist.
 
    **Choosing WHICH X40**: sum what the iterated X30×X30 counterterms
    give in the collapsing limit, then pick the X40 whose MEASURED
@@ -267,9 +347,15 @@ nowhere — and it can differ between a `Full` composite and its own
 sub-antennae. Writing a `.map` line therefore couples two independent
 conventions; get the pairing wrong and the term is singular in limits
 the ME is finite in, and every downstream counterterm attempt fails
-for reasons that look like physics errors. The generic four-step
-procedure (applies to D40, G40, H40, and every IF/FI/II variant):
+for reasons that look like physics errors. The generic procedure
+(applies to D40, G40, H40, and every IF/FI/II variant):
 
+0. **Run the slot audit first** (`antenna_slots.py`,
+   antennae-naming-convention): if the entry point is flagged — its
+   Fortran dummy arguments are not declared in ascending positional
+   order — write the emitted wrapper BEFORE anything else, and write
+   the `.map` against the wrapper. This is a static scan; it costs
+   seconds and would otherwise cost build cycles.
 1. **Measure the antenna's pole graph** (probe-me-ir-structure pole
    scan).
 2. **Read the chain off the pole graph**: the endpoints are the

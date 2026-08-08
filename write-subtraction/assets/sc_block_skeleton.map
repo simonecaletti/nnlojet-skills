@@ -1,0 +1,28 @@
+# S,c (large-angle soft) block — minimal synthetic instance showing the
+# ACCEPTED maple syntax, for trees where no final-final example survives.
+# Every UPPERCASE token is a placeholder; the lowercase letters are FN
+# argument letters with this legend:
+#   k          the soft parton
+#   i, j       the pair whose iterated clusters the SS terms correct
+#   l, m       the far hard radiators the true eikonal connects to
+# Momenta: [a,b] = once-mapped cluster, [[a,b],c] = twice-mapped.
+# The SFF arguments are (radiator, soft, radiator): a difference of
+# eikonals between the dipoles the ITERATED product produces and the
+# dipole the TRUE ME has — the construction is measured, not copied
+# (residue fitter, probe-me-ir-structure mode 3).
+#
+# This file is a syntax skeleton: replace X30NAME/REDME/JETnm/the
+# letters, renumber aN into your term (map_blocks.py), then VERIFY BY
+# REGENERATING, not by assertion — see SKILL.md ("S,c wiring at the
+# Fortran level") for the regeneration procedure.
+
+FN:=DUMMYTERM(1,2,i,j,k,l,m):
+
+XX:=
+# block: Sc
+-( SFF(l,k,[j,k]) + SFF([i,k],k,m)
+ - SFF(l,k,[k,i]) - SFF([j,k],k,m) )
+ *X30NAME(l,[i,k],[j,k])
+ *REDME([l,[i,k]],[[i,k],[j,k]],m,1,2)
+ *JETnm([l,[i,k]],[[i,k],[j,k]],m)*a1
+:
