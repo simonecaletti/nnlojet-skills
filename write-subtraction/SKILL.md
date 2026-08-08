@@ -302,6 +302,12 @@ python .claude/skills/write-subtraction/scripts/pole_ledger.py \
 # labels = the FN argument names of the .map
 ```
 
+**Keep the spec next to the term as `<TERM>.spec.json`.** With that
+name, `regen_rebuild.sh` (autogen-subtraction) runs the ledger itself
+before every generation and REFUSES to build a term that fails it — so
+the check cannot be skipped by going straight to a build cycle, which
+is the failure mode this section exists to prevent.
+
 What it catches (each verified on real mutations):
 - a **Full composite whose pole graph the mapping cannot support**
   used directly — e.g. FullE40's endpoint quark||gluon pole — with the
@@ -321,6 +327,40 @@ What it catches (each verified on real mutations):
 - **unpaired spurious singles**: every flavour-valid single pole of
   every X40 line must have a negative iterated line on the same
   invariant; orphaned counterterms and sign-rule violations warn.
+- **a split half used alone** (ERROR): if a registered half appears
+  without its partner the ledger says so and PRINTS THE CALLS TO ADD,
+  derived from the datasheet's verified identity — e.g. `E40a` alone
+  yields *"partner E40b appears nowhere … Add: E40b(l,m,j,i);
+  E40b(k,m,i,j); …"*. The halves carry different mappings and cover
+  different limits, so one alone always leaves poles unsubtracted.
+  Argument sets are compared unordered, because slots an antenna is
+  symmetric in may legitimately be written either way (both
+  conventions occur in verified terms — only the mapping differs).
+- **the reverse pairing direction** (ERROR): an iterated counterterm is
+  singular at leading power in every leaf invariant its FIRST antenna
+  carries, so each of those must be a spurious single of some X40 line
+  in the term. Sharing the invariant with an S,a line is NOT enough —
+  S,a is exact there, so an unmatched counterterm subtracts a limit
+  nothing restores. Empirical signature of the miss: that
+  single-unresolved mode reads `ME/(ME − c)` with `c = O(1)` — a
+  ~1.5–1.7 plateau, not noise. A `pairing aN:` line is printed per
+  iterated line so the whole matrix is visible at once.
+
+Both directions have escapes for the rare legitimate case, written as
+comments in the `.map` so the exception is reviewable:
+`# ledger: allow-half <token>` and `# ledger: allow-orphan a<N>`.
+
+**A term that is PARTIAL by design says so in its spec.** Some channels
+carry only part of the structure — an identical-flavour term such as
+`D0g0ZepemjjS` holds the X40 lines while its single-unresolved limits
+live in the non-identical sibling term. Add
+`"families": ["ds","tc","dc"]` and the single-unresolved bookkeeping is
+reported rather than failed (mode coverage restricts to the declared
+families too). Without it the ledger would demand S,a lines that
+belong to another file. Verified: the four validated terms
+(`C0g0ZepemjjS`, `D0g0ZepemjjS` with the declaration, and both
+reference `C1g0ZepemS` implementations) report 0 errors, while a term
+missing an X40 half reports 9.
 
 SCOPE — existence, not sufficiency: the ledger detects MISSING
 structure; a block touching the right invariants with the wrong

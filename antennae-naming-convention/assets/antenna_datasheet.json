@@ -863,6 +863,15 @@
    ]
   ],
   "requires_split": true,
+  "residue": {
+   "sco:2,3": {
+    "confidence": "inferred",
+    "date": "2026-08-08",
+    "method": "spike-test cancellation, epem C1g0Z mode 5||6",
+    "note": "E40a alone left +0.424*ME on that boundary; G30FF(D,B,C)*d30FF(A,[B,C],[D,B]) cancelled it to 2e-5. NOT a direct residue fit.",
+    "reduces_to": "P_{g->qqb}(z)/s(B,C) x d30FF(A,[B,C],D)  (the NEW gluon unresolved between A and the mapped D)"
+   }
+  },
   "slot_pairs": [
    [
     2,
@@ -953,6 +962,15 @@
    ]
   ],
   "requires_split": false,
+  "residue": {
+   "sco:3,4": {
+    "confidence": "inferred",
+    "date": "2026-08-08",
+    "method": "spike-test differencing FullE40 vs E40a, epem C1g0Z mode 5||6",
+    "note": "FullE40 with both iterated families gave 1.015 on that mode where E40a+one family gave 1.58; the second family matches this residue. Worth a direct residue fit.",
+    "reduces_to": "P_{g->qqb}(z)/s(B,C) x d30FF(A,D,[B,C])  (the mapped Born gluon D unresolved between A and the new gluon)"
+   }
+  },
   "slot_pairs": [
    [
     3,

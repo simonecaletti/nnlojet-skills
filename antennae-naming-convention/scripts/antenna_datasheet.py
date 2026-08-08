@@ -760,6 +760,125 @@ def cmd_static(args):
           f"(J21/J22 + species + reduced-cluster semantics)")
 
 
+def split_frame(token, data):
+    """(letters of THIS token, partner token, letters of the partner).
+
+    Read off the registered `halves` + `split_identity` of whichever
+    Full entry owns this token, so a newly measured split needs no code
+    change.  A standalone antenna gets the identity frame ABC(D).
+    """
+    for _full, e in data.items():
+        halves, ident = e.get("halves") or [], e.get("split_identity")
+        if token in halves and ident:
+            perms = dict(re.findall(r"([A-Za-z0-9]+)\(([A-Z]+)\)", ident))
+            other = [h for h in halves if h != token]
+            if token in perms and other and other[0] in perms:
+                return perms[token], other[0], perms[other[0]]
+    return "ABCD"[:data.get(token, {}).get("arity", 3)], None, None
+
+
+def _slotmap(key, letters):
+    """'2,3' -> 'B,C' in the antenna's own letter frame."""
+    return ",".join(letters[int(v) - 1] for v in key.split(","))
+
+
+def operative_block(token, e, data):
+    """The USE contract: how to call it, what its clusters become, which
+    limits it does and does NOT cover, and what it reduces to.
+
+    Everything here is derived from measured data already in the sheet —
+    no antenna-specific knowledge lives in this function.
+    """
+    n = e.get("arity", 3)
+    L, other, OL = split_frame(token, data)
+    L = L[:n]
+    out = ["  --- operative contract ---"]
+    out.append(f"  call      : {token}({','.join(L)})"
+               f"   [declared slots {e.get('slots_declared')}]")
+
+    # clusters produced by the generic rule, with their parton identity
+    cl = ([(L[0], L[1]), (L[1], L[2])] if n == 3 else
+          [(L[0], L[1], L[2]), (L[3], L[2], L[1])])
+    red = e.get("reduced") or [None] * 2
+    for c, r in zip(cl, red):
+        if r is None:
+            what = "?"
+        elif r[0] == "g":
+            what = "gluon"
+        else:
+            what = f"quark, flavour of {L[r[1] - 1]}"
+        out.append(f"  cluster   : [{','.join(c)}] -> {what}")
+    out.append("  clusters are the ONLY reduced momenta this antenna can "
+               "make; a pole outside them cannot be subtracted by it "
+               "(net-flavour arithmetic on the cluster members is NOT "
+               "the test — the line above is).")
+
+    m = e.get("measured", {})
+    own = [set(c) for c in cl]
+
+    def pairs_of(meas, letters):
+        return {frozenset(_slotmap(k, letters).split(","))
+                for k in meas.get("sco", {})}
+
+    def supported(pair, clusters):
+        return any(set(pair) <= c for c in clusters)
+
+    def ps(pair):
+        return "s(" + ",".join(sorted(pair)) + ")"
+
+    mine = pairs_of(m, L)
+    cov = [ps(p) for p in sorted(mine, key=sorted) if supported(p, own)]
+    cov += [f"soft {L[int(b) - 1]}" for b in sorted(m.get("ss", {}))]
+    cov += [f"tc({_slotmap(k, L)})" for k in sorted(m.get("tc", {}))]
+    out.append("  covers    : " + (" · ".join(cov) or "none measured"))
+
+    unsup = [p for p in sorted(mine, key=sorted) if not supported(p, own)]
+    if other and other in data:
+        oe = data[other]
+        ocl = ([(OL[0], OL[1], OL[2]), (OL[3], OL[2], OL[1])] if n == 4
+               else [(OL[0], OL[1]), (OL[1], OL[2])])
+        ocl = [set(c) for c in ocl]
+        theirs = pairs_of(oe.get("measured", {}), OL)
+        out.append(f"  partner   : {other}({','.join(OL[:n])})"
+                   f"   — identity {token}({L})+{other}({OL})")
+        for p in unsup:
+            who = [c for c in ocl if set(p) <= c]
+            out.append(
+                f"  UNSUPPORTED: {ps(p)} is in the pole graph but NO "
+                f"cluster of {token} can represent it"
+                + (f" — the partner's cluster "
+                   f"[{','.join(sorted(who[0]))}] can, so that limit is "
+                   f"{other}'s job" if who else
+                   f" — and {other} cannot either: needs a counterterm"))
+        only_theirs = [p for p in sorted(theirs - mine, key=sorted)]
+        if only_theirs:
+            out.append("  does NOT  : "
+                       + " · ".join(ps(p) for p in only_theirs)
+                       + f" — those poles exist only in {other}")
+        out.append(f"  NEVER use {token} without {other}: the halves have "
+                   f"DIFFERENT mappings and cover DIFFERENT limits.")
+    elif unsup:
+        out.append(f"  UNSUPPORTED: {' · '.join(ps(p) for p in unsup)} — "
+                   f"in the pole graph but not representable by the "
+                   f"clusters above; needs a counterterm")
+        alts = [s for s in om.get("splits", []) or
+                m.get("splits", []) or []]
+        if len(alts) > 1:
+            out.append(f"  note      : several identities hold "
+                       f"({'; '.join(alts)}) — the halves' VALUES agree, "
+                       f"the MAPPINGS do not, so the choice is a mapping "
+                       f"convention: declare it as a map_blocks axis.")
+    for lim, r in sorted((e.get("residue") or {}).items()):
+        kind, key = (lim.split(":", 1) + [""])[:2]
+        where = f"{kind}({_slotmap(key, L)})" if key else lim
+        out.append(f"  residue   : {where} -> {r.get('reduces_to')}"
+                   f"   [{r.get('method')}, {r.get('confidence')}"
+                   f", {r.get('date')}]")
+        if r.get("note"):
+            out.append(f"              {r['note']}")
+    return "\n".join(out)
+
+
 def fmt_entry(token, e):
     out = [f"=== {token} ===",
            f"  fortran   : {e.get('fortran')}"
@@ -806,7 +925,31 @@ def cmd_show(args):
                   f"(run 'measure {token}' first)")
             continue
         print(fmt_entry(token, data[token]))
+        print(operative_block(token, data[token], data))
         print()
+
+
+def cmd_residue(args):
+    """Record what an antenna reduces to on one boundary.
+
+    Keeps measured physics in the ASSET, not in code, so the operative
+    contract grows without touching this script.
+    """
+    data = load_data(args.data)
+    token = args.names[0]
+    if token not in data:
+        print(f"{token}: not in datasheet (run 'measure {token}' first)")
+        sys.exit(1)
+    data[token].setdefault("residue", {})[args.limit] = {
+        "reduces_to": args.reduces_to,
+        "method": args.method,
+        "confidence": args.confidence,
+        "note": args.note,
+        "date": datetime.date.today().isoformat(),
+    }
+    save_data(args.data, data)
+    print(f"{token}: recorded residue on {args.limit} "
+          f"({args.confidence})")
 
 
 def cmd_render(args):
@@ -815,6 +958,7 @@ def cmd_render(args):
     for token in sorted(data):
         print("```")
         print(fmt_entry(token, data[token]))
+        print(operative_block(token, data[token], data))
         print("```\n")
 
 
@@ -954,6 +1098,19 @@ def main():
     p = sub.add_parser("show")
     common(p)
     p.set_defaults(func=cmd_show)
+
+    p = sub.add_parser("residue")
+    common(p)
+    p.add_argument("--limit", required=True,
+                   help="boundary in slot terms, e.g. sco:2,3")
+    p.add_argument("--reduces-to", required=True, dest="reduces_to")
+    p.add_argument("--method", required=True,
+                   help="how it was established (residue fit, "
+                        "spike-test cancellation, ...)")
+    p.add_argument("--confidence", default="inferred",
+                   choices=["measured", "inferred"])
+    p.add_argument("--note", default="")
+    p.set_defaults(func=cmd_residue)
 
     p = sub.add_parser("render")
     common(p, names=False)

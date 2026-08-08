@@ -84,12 +84,41 @@ python .claude/skills/antennae-naming-convention/scripts/antenna_datasheet.py \
 python .../antenna_datasheet.py measure <NAME> --testdir test/process/<P>
 python .../antenna_datasheet.py verify  <NAME> --testdir ...   # re-measure+diff
 python .../antenna_datasheet.py static  --root .   # refresh declared fields
+python .../antenna_datasheet.py residue <NAME> --limit sco:2,3 \
+       --reduces-to "..." --method "..." [--confidence measured|inferred]
 ```
 
 `measure` needs any BUILT spike-test object dir with 7-parton phase
 space; the antenna is evaluated on its own legs, so entries are
 process-independent. The datasheet feeds `pole_ledger.py`
 (write-subtraction) — the static bookkeeping check of a whole `.map`.
+
+### The operative contract — read this before placing an antenna
+
+`show` prints, under `--- operative contract ---`, the four facts you
+actually need to write a `.map` line. All of them are DERIVED from the
+measured entry, so a newly measured antenna gets its contract free:
+
+- **`call`** — the letter frame (A,B,C,D) and the declared slot order,
+  so a permuted entry point cannot be miscalled;
+- **`cluster`** — what each cluster the generic rule produces *becomes*:
+  `[A,D,C] -> quark, flavour of A` means A absorbed D. **This is the
+  legality test, not net-flavour arithmetic on the cluster members.**
+  A cluster like `[qb, g, Q]` looks illegal by flavour counting and is
+  perfectly legal here; rejecting an antenna on that reasoning is a
+  known, expensive mistake;
+- **`UNSUPPORTED` / `does NOT`** — poles in the graph that this
+  antenna's clusters cannot represent, naming the partner half whose
+  cluster can. That sentence is the difference between "E40b is
+  unusable" and "s(A,D) is E40b's job";
+- **`residue`** — what it reduces to on a boundary, which is the input
+  to the matching iterated counterterm. Record one with `residue`
+  whenever you establish it (a residue fit is `measured`; a cancellation
+  inferred from a spike-test mode is `inferred` — say which, and the
+  note field carries the evidence).
+
+Halves always come as a pair; `show` says so explicitly and
+`pole_ledger.py` turns it into an error with the calls to add.
 
 **Slot plumbing — the cheap first lookup (run BEFORE the pole scan,
 not instead of it).** The maple cluster rule is positional, but the

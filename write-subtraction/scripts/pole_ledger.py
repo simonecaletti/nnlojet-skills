@@ -199,7 +199,8 @@ def genuine_modes(spec, modes_path=None):
     with tempfile.NamedTemporaryFile("w", suffix=".json",
                                      delete=False) as f:
         json.dump({"partons": spec["flavours"],
-                   "born": spec["born"]}, f)
+                   "born": spec["born"],
+                   "families": spec.get("families")}, f)
         tmp = f.name
     try:
         out = subprocess.run(
@@ -527,6 +528,21 @@ def run_ledger(mapfile, spec, sheet, modes, verbose=False, out=print):
                    "no single line carries both pairs — coverage "
                    "lives in reduced-ME poles, unverified statically"))
 
+    # A term may be PARTIAL by design: e.g. an identical-flavour channel
+    # whose single-unresolved limits are carried by the non-identical
+    # sibling term. Declaring `"families"` in the spec says so, and the
+    # single-unresolved bookkeeping below then reports instead of fails.
+    fams = set(spec.get("families")
+               or ["ss", "sco", "ds", "tc", "sc", "dc"])
+    singles_here = bool(fams & {"ss", "sco"})
+    note = ("" if singles_here else
+            "  [spec declares no ss/sco families: singles are another "
+            "term's job, reported not failed]")
+
+    def single_issue(msg):
+        (rep["errors"] if singles_here else rep["info"]).append(
+            msg + note)
+
     # spurious-single pairing for X40 lines
     valid_cluster = make_valid_cluster(flavours)
     iterated = [(lc, lc.poles()) for lc in lines
@@ -553,7 +569,7 @@ def run_ledger(mapfile, spec, sheet, modes, verbose=False, out=print):
             nm = ("s(" + ",".join(sorted(inv)) + ")") \
                 if kind == "sco" else f"soft {next(iter(inv))}"
             if not partners:
-                rep["errors"].append(
+                single_issue(
                     f"a{lc.aN}: spurious single pole {nm} of {token} "
                     f"has NO negative iterated counterterm on the same "
                     f"invariant — it will survive every "
@@ -563,33 +579,154 @@ def run_ledger(mapfile, spec, sheet, modes, verbose=False, out=print):
                     f"a{lc.aN}: {token} {nm} paired with "
                     f"{['a%d' % ic.aN for ic in partners]}")
 
-    # orphaned iterated lines
-    x40_singles = set()
+    # --- SPLIT HALVES: a registered half never appears alone ----------
+    allow_half, allow_orphan = read_pragmas(mapfile)
+    partners = half_partners(sheet)
+    used = {}                                   # token -> [(aN, args)]
     for lc in lines:
+        for token, args, _e in lc.antennae:
+            used.setdefault(token, []).append((lc.aN, [norm(a)
+                                                       for a in args]))
+    for token, calls in sorted(used.items()):
+        if token not in partners or token in allow_half:
+            continue
+        other, mine, theirs = partners[token]
+        want = []                            # (aN, own args, partner args)
+        for aN, args in calls:
+            pa = partner_args(args, mine, theirs)
+            if pa is not None:
+                want.append((aN, args, pa))
+
+        def callstr(tok, argv):
+            return tok + "(" + ",".join(show(x) for x in argv) + ")"
+
+        if other not in used:
+            recipe = "; ".join(callstr(other, pa) for _n, _a, pa in want)
+            rep["errors"].append(
+                f"{token} is one HALF of a split antenna and its partner "
+                f"{other} appears nowhere: the halves carry different "
+                f"mappings and cover DIFFERENT limits, so using one alone "
+                f"leaves the other's poles unsubtracted. Identity "
+                f"{token}({mine})+{other}({theirs}). Add: "
+                + (recipe or f"{other}(...)"))
+        else:
+            # Compare as a SET of momenta, not an ordered tuple: within a
+            # half, slots that the antenna is symmetric in may be written
+            # either way (both conventions occur in verified terms) and
+            # only the MAPPING differs, not the value.  What must not
+            # happen is a half with no partner on those momenta at all.
+            have = {frozenset(map(repr, a)) for _n, a in used[other]}
+            for aN, args, pa in want:
+                if frozenset(map(repr, pa)) not in have:
+                    rep["warnings"].append(
+                        f"a{aN}: {callstr(token, args)} has no {other} "
+                        f"line on the same four momenta — expected "
+                        + callstr(other, pa))
+
+    # --- PAIRING MATRIX: X40 spurious singles <-> iterated lines ------
+    # Forward (X40 -> counterterm) was checked above.  This is the
+    # REVERSE direction: an iterated line is singular at leading power
+    # in every leaf invariant its FIRST antenna carries, so each of
+    # those must be a spurious single of some X40 line in the term.
+    # Sharing the invariant with an S,a line is NOT enough — S,a is
+    # exact there, so an unmatched counterterm subtracts a limit that
+    # nothing restores.  (Empirical signature: the single-unresolved
+    # mode on that invariant lands at ME/(ME - c), c = O(1).)
+    x40_single_map = {}
+    valid_cluster2 = make_valid_cluster(flavours)
+    for lc in lines:
+        if len(lc.antennae) != 1:
+            continue
         for token, args, entry in lc.primary():
             if len(args) != 4:
                 continue
             meas = entry.get("measured", {})
             for key in meas.get("sco", {}):
                 p, q = (int(v) for v in key.split(","))
-                x40_singles.add(
-                    ("sco", frozenset([norm(args[p - 1]),
-                                       norm(args[q - 1])])))
+                pair = frozenset([norm(args[p - 1]), norm(args[q - 1])])
+                if valid_cluster2(pair):
+                    x40_single_map.setdefault(("sco", pair),
+                                              []).append(lc.aN)
             for bslot in meas.get("ss", {}):
-                x40_singles.add(
-                    ("ss", frozenset([norm(args[int(bslot) - 1])])))
-    sa_poles = set()
-    for lc in lines:
-        if len(lc.antennae) == 1 and len(lc.antennae[0][1]) == 3:
-            sa_poles |= lc.poles()
+                leaf = norm(args[int(bslot) - 1])
+                if flavours.get(leaf) == "g":
+                    x40_single_map.setdefault(
+                        ("ss", frozenset([leaf])), []).append(lc.aN)
     for ic, pl in iterated:
-        leafpoles = {p for p in pl
-                     if all(isinstance(v, str) for v in p[1])}
-        if leafpoles and not (leafpoles & (x40_singles | sa_poles)):
-            ic.warn("iterated line shares no invariant with any X40 "
-                    "single pole or S,a pole — orphaned counterterm?")
+        leafpoles = sorted(
+            (p for p in pl
+             if p[0] in ("sco", "ss")
+             and all(isinstance(v, str) for v in p[1])),
+            key=lambda p: (p[0], sorted(p[1])))
+        if not leafpoles:
+            continue
+        unmatched = [p for p in leafpoles if p not in x40_single_map]
+        cells = ", ".join(
+            f"{polename(*p)}->"
+            + (",".join("a%d" % n for n in x40_single_map[p])
+               if p in x40_single_map else "NONE")
+            for p in leafpoles)
+        rep["info"].append(f"pairing a{ic.aN}: {cells}")
+        if unmatched and ic.aN not in allow_orphan:
+            single_issue(
+                f"a{ic.aN}: iterated counterterm is singular at leading "
+                f"power in {', '.join(polename(*p) for p in unmatched)} "
+                f"but NO X40 line has that spurious single pole — it "
+                f"will over-subtract that single-unresolved limit. "
+                f"Either add the X40 half that carries it, or move this "
+                f"overlap to the other writing.")
 
     return rep
+
+
+def polename(kind, inv):
+    if kind == "ss":
+        return f"soft {next(iter(inv))}"
+    return "s(" + ",".join(sorted(inv)) + ")"
+
+
+def half_partners(sheet):
+    """half token -> (partner token, letters_self, letters_partner).
+
+    Derived from the datasheet's registered `halves` + `split_identity`
+    (e.g. "E40a(ABCD)+E40b(ADCB)"); nothing antenna-specific is encoded
+    here, so a newly measured split is picked up for free.
+    """
+    out = {}
+    for _full, e in sheet.items():
+        halves = e.get("halves") or []
+        ident = e.get("split_identity") or ""
+        if len(halves) != 2 or not ident:
+            continue
+        perms = dict(re.findall(r"([A-Za-z0-9]+)\(([A-Z]+)\)", ident))
+        a, b = halves
+        if a in perms and b in perms:
+            out[a] = (b, perms[a], perms[b])
+            out[b] = (a, perms[b], perms[a])
+    return out
+
+
+def partner_args(args, letters_self, letters_partner):
+    """Re-order a half's call arguments into its partner's call."""
+    if len(args) != len(letters_self) or \
+            sorted(letters_self) != sorted(letters_partner):
+        return None
+    m = dict(zip(letters_self, args))
+    return [m[l] for l in letters_partner]
+
+
+def read_pragmas(mapfile):
+    """`# ledger: allow-half <token>` / `allow-orphan <aN>` escapes."""
+    allow_half, allow_orphan = set(), set()
+    try:
+        text = open(mapfile).read()
+    except OSError:
+        return allow_half, allow_orphan
+    for m in re.finditer(r"#\s*ledger:\s*allow-half\s+(\S+)", text):
+        allow_half.add(m.group(1))
+    for m in re.finditer(r"#\s*ledger:\s*allow-orphan\s+a?(\d+)", text):
+        allow_orphan.add(int(m.group(1)))
+    return allow_half, allow_orphan
 
 
 def make_valid_cluster(flavours):

@@ -29,14 +29,44 @@ bash .claude/skills/autogen-subtraction/scripts/regen_rebuild.sh \
 bash .claude/skills/autogen-subtraction/scripts/regen_rebuild.sh --selftest
 ```
 
-It runs the consistency check (aborting on `aN` gaps), regenerates the
-Fortran (aborting on `invalid ME argument` / `left-over list`),
-restores files whose change was boilerplate-only (the semantic-diff
-discipline of Step 2, automated), and rebuilds the check program
-(retrying `-j1` on the module-dependency race). Each structural
-hypothesis then costs one command instead of a hand-driven
-regenerate–diff–restore–rebuild cycle. New terms still need Step 3
-once, by hand.
+It runs the **static pole ledger** (below), then the consistency check
+(aborting on `aN` gaps), regenerates the Fortran (aborting on
+`invalid ME argument` / `left-over list`), restores files whose change
+was boilerplate-only (the semantic-diff discipline of Step 2,
+automated), and rebuilds the check program (retrying `-j1` on the
+module-dependency race). Each structural hypothesis then costs one
+command instead of a hand-driven regenerate–diff–restore–rebuild
+cycle. New terms still need Step 3 once, by hand.
+
+### Step 0 — the ledger gate (runs before maple; a failure aborts)
+
+For every `maple/process/<DIR>/<TERM>.map` with a sibling
+`<TERM>.spec.json`, `pole_ledger.py` (write-subtraction) runs FIRST and
+a ledger ERROR stops the run. This is deliberate: the error classes it
+catches — an X40 spurious pole with no iterated partner, a split half
+used without its partner, a stale cluster, an orphaned counterterm —
+each otherwise cost a full regenerate+compile+link+run cycle to
+discover, and they present as *physics* failures in the spike test, so
+they invite the wrong fix. Seconds here, a build cycle there.
+
+The spec is four lines and lives next to the `.map`:
+
+```json
+{ "flavours": {"l":"qb1","m":"g","i":"q2","j":"qb2","k":"q1"},
+  "born": [["q1","qb1","g"]],
+  "partons": {"l":"qb1","m":"g","i":"q2","j":"qb2","k":"q1"} }
+```
+
+`flavours` keys are the `FN` argument names; anything not listed is a
+non-parton (leptons). A `.map` with no spec is reported `UNCHECKED` and
+the run continues — write the spec rather than living with that. A term
+that is partial by design (single-unresolved limits carried by a
+sibling term) adds `"families": ["ds","tc","dc"]`.
+
+Escapes, both of which announce themselves:
+- `--skip-ledger` — one-off bypass, e.g. when deliberately building a
+  partial term for block bisection;
+- `LEDGER_REQUIRED=1` — promote `UNCHECKED` to a hard error too.
 
 ## Scope
 

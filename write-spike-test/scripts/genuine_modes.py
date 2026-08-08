@@ -297,7 +297,12 @@ def main():
     spec = json.load(open(sys.argv[1]))
     # keys are momentum labels: ints in check-program specs, but any
     # string label works (e.g. the l,k,i,j,m of a .map's FN line)
-    partons = {int(k) if str(k).isdigit() else k: v
+    # Convert to ints only if EVERY label is numeric: a .map FN line may
+    # mix letters and numbers (e.g. C0g0ZepemjjS(i,4,5,j,...)), and a
+    # mixed set is unorderable, so those stay strings throughout.
+    keys = list(spec["partons"])
+    allnum = all(str(k).isdigit() for k in keys)
+    partons = {(int(k) if allnum else str(k)): v
                for k, v in spec["partons"].items()}
     res = classify(partons, spec["born"], spec.get("families"))
     if "--json" in sys.argv:
