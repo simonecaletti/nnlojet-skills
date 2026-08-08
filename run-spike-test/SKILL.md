@@ -5,7 +5,8 @@ description: >
   that validate antenna-subtraction terms against the full matrix element in
   infrared limits — including diagnosing WHICH block or WHICH .map line of
   a failing term is responsible (per-line weight attribution, mode→block
-  shortlist, ratio-character reading, block bisection) and reporting the
+  shortlist, ratio-character reading, runtime line masking, unattended
+  configuration sweeps, block bisection) and reporting the
   per-limit result table in chat. Use whenever the user asks to spike-test a channel, check
   a subtraction term, verify infrared cancellation, or after a subtraction
   term was edited/registered (write-subtraction / autogen-subtraction
@@ -283,7 +284,51 @@ not an improvisation:
    regenerate+rebuild in one command (autogen-subtraction's wrapper),
    rerun the failing mode only (`./check ITYPE MODELO MODEHI` where
    the CLI supports it).
-5. Remember the harness caveats: on DEAD modes rat→0 or noise is
+
+   **Bisect by MASK, not by rebuild, whenever the line set is
+   unchanged.** A term generated with `-Dwtdebug=1` also honours
+   `NNLOJET_WTMASK` — a string of `0`/`1`, one character per `aN` term
+   in file order, zeroing the masked lines at runtime. Testing a subset
+   then costs a RUN (~1 s) instead of a regenerate+rebuild (~1 min),
+   and an all-ones mask is exactly a no-op:
+
+   ```bash
+   NNLOJET_WTMASK=111111111111111111000011111111 OMP_NUM_THREADS=1 \
+       ./check5to3 <CH> <MODE> <MODE> 60 1
+   ```
+
+   The mask can only turn lines OFF. Adding or changing a line still
+   needs a rebuild — which is what step 5 automates.
+5. **Sweep the whole space — do not sample it.** Reasoning narrows the
+   candidate configurations; it rarely empties them, and the survivors
+   are cheap to test and expensive to argue about. Enumerate and score
+   them unattended:
+
+   ```bash
+   python .claude/skills/write-subtraction/scripts/map_blocks.py \
+       enumerate master.map --fixed Sa --axes absorb,sb1 \
+   | python .claude/skills/run-spike-test/scripts/scan_blocks.py \
+       --master master.map --out <TERM>.map \
+       --regen "bash .../regen_rebuild.sh -n <N> -l RR -s src/process/<D> -t test/process/<P> -m <TARGET>" \
+       --run "./<TARGET> 1 1 80 60 2" --run-cwd test/process/<P> \
+       --genuine 4,8,13,... --results scan.txt
+   ```
+
+   A mode counts as exact only if its median is within tolerance AND
+   it has zero outliers. Two harness bugs are baked into the script
+   because both cost a debugging round: never poll with
+   `pgrep -f <your script>` (it matches the poller's own command line
+   and never terminates), and never rank with `sort` on a line whose
+   first field is `[12]` (parse the score as an integer).
+
+   **A sweep that finds nothing is a RESULT, not a failure.** If no
+   configuration in the declared space beats the incumbent, the missing
+   piece is a line form absent from the master — the next step is
+   measurement (probe-me-ir-structure, modes 3 and 4), not more
+   searching. That conclusion is only available if the space was
+   declared and swept exhaustively; sampling a dozen configurations by
+   hand cannot distinguish "not found" from "not looked for".
+6. Remember the harness caveats: on DEAD modes rat→0 or noise is
    normal; a sub-singular mode reading 1.0000 is a false pass (see
    classification above); a control channel with an untouched `.map`
    separates harness artefacts from your term.

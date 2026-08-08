@@ -7,7 +7,9 @@ description: >
   deriving the block skeleton from colour connection before any run,
   aligning an unfamiliar antenna's arguments with the cluster rule,
   constructing the S,b2 / S,c / S,d blocks from measured pole graphs, and
-  iterating block hypotheses with the composer script. Also answers "why
+  iterating block hypotheses with the composer script (variant AXES +
+  unattended sweeps, so line-level choices are searched and not just
+  block on/off). Also answers "why
   does this block exist / why this sign / how many lines". Use whenever the
   user asks to write, modify, or debug a subtraction term, fix a channel
   that fails a spike test, or add missing infrared limits to a
@@ -50,8 +52,10 @@ answers in minutes-to-hours:
    (probe-me-ir-structure).
 4. **Multi-run measurements** — residue fits (probe-me-ir-structure
    mode 3).
-5. **Build cycles** — the block composer below plus
-   autogen-subtraction's regenerate+rebuild wrapper. Never hand-roll
+5. **Build cycles** — the block composer below (with variant AXES, so
+   the sweep covers line-level choices and not just block on/off) plus
+   run-spike-test's `scan_blocks.py` for an unattended ranked sweep,
+   plus autogen-subtraction's regenerate+rebuild wrapper. Never hand-roll
    the regenerate–restore–rebuild sequence; the wrapper is that
    sequence.
 
@@ -619,6 +623,52 @@ markers, compose the subset under test, then run the one-command
 regenerate+rebuild wrapper (autogen-subtraction) and the spike test.
 This turns a structural hypothesis into a single short test — and
 makes the block bisection of run-spike-test practical.
+
+### Toggling blocks searches only the lines you already wrote
+
+The choices INSIDE a line are just as free as the choice of block, and
+they are the ones a block sweep silently freezes:
+
+- **which pair member a radiator absorbs** — `E30FF(a,b,c)` is
+  symmetric in `b,c` so the VALUE is unchanged, but the cluster is
+  `[a,b]`, and that propagates into the reduced ME and into every
+  iterated counterterm built on the line. Colour says the radiator
+  should absorb its own colour NEIGHBOUR; a term transcribed from a
+  process with a different chain often absorbs the other one;
+- **the coefficient** (`1`, `1/2`, `1/4` — the family in
+  antennae-naming-convention);
+- **which antenna of a species**, and **Full vs split half**;
+- **which of the two writings** an iterated counterterm uses.
+
+Declare such a choice as an AXIS whose options name whole alternative
+block sets, so co-dependent lines can only move together — flipping an
+`S,a` cluster forces the matching flip in the `S,b2` lines built on it,
+and an axis is the only construct that expresses that:
+
+```
+# axis: absorb = near:Sa_f1n,Sb2_f1Gn,Sb2_f1mn | far:Sa_f1f,Sb2_f1Gf,Sb2_f1mf
+# axis: sb1    = E40a:Sb1_f1,Sb1_f2 | full:Sb1_f1F,Sb1_f2F | none:
+```
+
+```bash
+map_blocks.py axes      master.map                 # options + product size
+map_blocks.py enumerate master.map --fixed Sa_g --axes absorb,sb1
+map_blocks.py compose   master.map --select absorb=near,sb1=E40a --fixed Sa_g -o <TERM>.map
+```
+
+`enumerate` emits the cross-product as ready-to-compose block lists —
+feed it straight to `scan_blocks.py` (run-spike-test) to score every
+configuration unattended. **Sweep the declared space; do not sample
+it.** A dozen hand-picked configurations cannot distinguish "no
+configuration works" from "I did not try the one that does" — and only
+the first of those tells you to stop searching and start measuring
+(probe-me-ir-structure mode 4 for a bare-antenna collinear residue).
+
+**Diagnostic that points at an absorption/ordering axis rather than a
+missing block**: a residual of roughly 1.2–3.4× confined to one or two
+SINGLE-collinear modes, while the double-unresolved modes are exact.
+That is the signature of a cluster order carried over from a different
+colour chain, not of an absent line.
 
 ## Deriving a term by crossing an existing one
 

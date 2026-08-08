@@ -2,7 +2,7 @@
 name: probe-me-ir-structure
 description: >
   Measure the infrared structure of a MATRIX ELEMENT or an ANTENNA
-  FUNCTION numerically. Three modes: (1) dipole/colour fits — which
+  FUNCTION numerically. Four modes: (1) dipole/colour fits — which
   colour dipoles a soft gluon connects, with what coefficient; flavour
   symmetries; whether a crossed .map's reduced-ME argument order
   survived the crossing; (2) POLE SCAN of an antenna — which invariants
@@ -11,7 +11,9 @@ description: >
   limit sits on; (3) RESIDUE FITTER — what a higher antenna (X40)
   reduces to on each of its boundaries, fitted onto a basis of
   lower-antenna × reduced-ME products (the input for iterated
-  counterterm construction). Use whenever reading colour flow or an
+  counterterm construction); (4) Z-PROFILE — the collinear counterpart
+  of (3) for a bare-antenna target, where a least-squares fit is
+  structurally rank-deficient. Use whenever reading colour flow or an
   antenna's convention out of source/papers stalls, and ALWAYS before
   using an antenna you have not used before. NOT a subtraction-term
   validator (that is run-spike-test).
@@ -20,7 +22,8 @@ description: >
 # Probing the IR structure of a matrix element or antenna function
 
 One shared machinery — phase-space drivers into IR limits, a
-least-squares fit with degeneracy refusal — behind three questions,
+least-squares fit with degeneracy refusal, a z-binned profiler —
+behind four questions,
 each feeding a specific construction in write-subtraction:
 
 1. **Dipole fit** (`scripts/gen_probe.py`): fit `ME/redME` (soft) or
@@ -39,6 +42,12 @@ each feeding a specific construction in write-subtraction:
    counterterms and the S,c soft differences** — including deciding
    between the two writings of an iterated counterterm (fit both
    orderings; the wrong one is not rational).
+4. **z-profile** (`scripts/residue_profile.py`): the collinear
+   counterpart of (3), for a BARE ANTENNA target where (3) is
+   rank-deficient by construction. **Feeds: the same S,b2/S,c
+   constructions, and specifically the decision "wrong coefficient vs
+   wrong object vs needs a sub-antenna split"**, which a fitted number
+   cannot express.
 
 All three name their limits in ONE mode vocabulary
 (`scripts/irlimits.py` — the same `ss/sco/ds/tc/sc/dc` + indices that
@@ -150,6 +159,44 @@ antenna are degenerate in a soft limit. Start from a 2–3 element basis
 and grow it, rather than listing every candidate and getting a
 rank-deficiency refusal.
 
+**Where mode 3 structurally cannot be used**: a BARE ANTENNA target in
+a COLLINEAR limit. Every basis entry then carries the same `1/s_ij`
+pole, the design matrix collapses to rank 1, and only the coefficient
+SUM is determined. The documented cure (basis = antenna × reduced ME)
+lifts the degeneracy through the reduced MEs, so it applies only when
+the target is a matrix element; with a bare antenna there is nothing to
+lift it. Symptom: coefficients that drift with x and are not rational,
+while the residual still looks small. Use mode 4 instead — do not
+"fix" it by shrinking the basis to one entry and reading the number,
+which silently discards the question you were asking.
+
+## Mode 4 — z-differential residue profile (residue_profile.py)
+
+The collinear counterpart of mode 3: do not solve, PROFILE. Bin points
+by the collinear momentum fraction z (measured from invariants,
+`z = s(i,r)/(s(i,r)+s(j,r))` with r a hard spectator) and report
+`median(target/candidate)` per z-bin with its spread, one candidate at
+a time — no linear system, so no degeneracy.
+
+```bash
+python .claude/skills/probe-me-ir-structure/scripts/residue_profile.py spec.json > profile_gen.f
+# compile/link exactly like a probe (below); run with OMP_NUM_THREADS=1
+```
+
+Reading the profile — this is the whole point of the mode:
+
+| profile | conclusion |
+|---|---|
+| flat in z, rational constant | candidate is right; the constant is its coefficient |
+| flat in z, irrational constant | right species, wrong normalisation or a missing partner term |
+| **varies with z** | wrong species, OR the candidate mixes soft and collinear pieces that the target weights differently — the signature that a **sub-antenna split** is needed, not a coefficient |
+| flat but wide per-bin spread | azimuthal terms survive the built-in `rotp` average ⇒ gluon parent and the candidate has the wrong spin structure |
+
+The middle two rows are the ones a least-squares fit cannot report at
+all: it returns a number either way. Spec fields mirror the other
+generators (`coll` names the collinear pair, `zref` the hard reference,
+`candidates` a list of independent expressions).
+
 ## Confidence — state of validation
 
 - **Soft limits: high confidence.** Expect EXACT RATIONALS, and
@@ -159,9 +206,11 @@ rank-deficiency refusal.
 - **X40-level fits in double-unresolved limits: VALIDATED.** They
   behave exactly like the soft-gluon case — exact rational
   coefficients, residuals at the 1e-14 level.
-- **Collinear limits**: need the basis construction below (basis =
-  antenna × reduced ME, un-divided); judge by coefficient stability
-  across an x scan, treat 3 stable digits as a good result.
+- **Collinear limits, ME target**: need the basis construction below
+  (basis = antenna × reduced ME, un-divided); judge by coefficient
+  stability across an x scan, treat 3 stable digits as a good result.
+- **Collinear limits, ANTENNA target**: mode 3 does not apply at all
+  (rank-1 design matrix). Use mode 4 and read the z-profile.
 - Not a validator for a subtraction term — that is run-spike-test.
 
 ## Usage
