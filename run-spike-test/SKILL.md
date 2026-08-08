@@ -261,14 +261,20 @@ not an improvisation:
 
 0. **Re-audit the structure** (seconds, no run):
    `predict_blocks.py spec.json --modes modes.json --audit <TERM>.map`
-   (write-subtraction). A whole missing or spurious block explains a
-   failure that per-line reasoning will otherwise chase for hours; it
-   exits non-zero on a mismatch.
+   then `pole_ledger.py <TERM>.map --spec spec.json` (both
+   write-subtraction). A whole missing/spurious block, a Full
+   composite that must be split, a stale cluster or an unpaired
+   spurious single explains a failure that per-line reasoning will
+   otherwise chase for hours — a family of modes failing TOGETHER
+   (e.g. every gluon-touching mode at once) is the ledger's
+   signature, one mode alone the per-line stack's. Both exit non-zero
+   on a finding.
 1. **Shortlist by pole graph.** List the blocks whose antennae have a
-   pole in the failing mode's invariants (measure with the
-   probe-me-ir-structure pole scan if not already known). Only those
-   blocks can be responsible — everything else is finite there and
-   cannot move the ratio.
+   pole in the failing mode's invariants (read the antenna DATASHEET
+   — `antenna_datasheet.py show <name>`, antennae-naming-convention —
+   or measure with the probe-me-ir-structure pole scan if absent).
+   Only those blocks can be responsible — everything else is finite
+   there and cannot move the ratio.
 2. **Read the ratio's CHARACTER, with the direction rule above:**
    - stable median ≠ 1 with near-zero spread → a coefficient or
      normalisation error on a covering line (below 1: something

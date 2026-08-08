@@ -25,14 +25,29 @@ Output:
   - table of entry points grouped by slot-declaration order;
   - a FLAG on every entry point whose slot order is not ascending —
     i.e. a positional maple call clusters different legs than the
-    dummy names imply — with a ready wrapper recipe;
+    dummy names imply — with an ARGUMENT-PERMUTATION recipe;
   - cross-check against maple/notation.map: tokens in
     ant30set/ant31set/ant40set with no Fortran entry point, and
-    antenna-like entry points not registered in any ant*fortset.
+    antenna-like entry points not registered in any ant*fortset;
+  - a scan for UNREGISTERED FORWARDING WRAPPERS in src/X30|X31|X40
+    (one-line functions renaming another antenna that no ant*fortset
+    resolves): their headers carry unverified claims and rot silently
+    — do not trust them, and do not call them from a .map.
 
 A flag means "check before positional use", not "wrong": some species'
-canonical chains are legitimately non-consecutive. The pole scan
-decides; the wrapper makes the positional call unambiguous either way.
+canonical chains are legitimately non-consecutive.
+
+THE FIX IS A PERMUTED CALL, NEVER A WRAPPER (write-subtraction's
+argument-alignment rule): permute the .map ARGUMENTS so the generic
+positional cluster rule lands on the legs the antenna actually
+clusters — e.g. the two halves of a Full X40 are used as
+X40a(A,B,C,D) together with X40b(A,D,C,B).  A wrapper restoring
+ascending slot order gives the RIGHT function value with the WRONG
+clusters, and it looks correct because the value-level checks agree
+with each other.  Which permutation is right is a physics question:
+read it off the measured pole graph / verified split identity in the
+antenna DATASHEET (antenna_datasheet.py show <name>), or run the pole
+scan if the antenna is not in the datasheet yet.
 """
 import argparse
 import os
@@ -72,24 +87,33 @@ def slot_info(args):
     return slots, extras, nums == sorted(nums)
 
 
-def wrapper_recipe(name, args):
-    """One-line wrapper putting the positional order in ascending slot
-    order, plus its two registrations."""
+def call_recipe(name, args):
+    """Permuted-ARGUMENT call recipe for a permuted declaration: how a
+    positional .map call realises the named-slot assignment, plus the
+    datasheet pointer that decides whether that is the physically
+    right permutation.  NO wrapper is emitted: a wrapper restoring
+    ascending order gives the right VALUE with the WRONG clusters
+    under the generic positional cluster rule (write-subtraction)."""
     slots, extras, _ = slot_info(args)
     canon = sorted(slots, key=lambda a: int(a[1:]))
-    head = ",".join(canon + extras)
-    body = ",".join(args)
-    fam = "X40" if "40" in name else ("X31" if "31" in name else "X30")
+    letters = "ABCDEFGHI"[:len(slots)]
+    named = {s: letters[i] for i, s in enumerate(canon)}
+    positional = "".join(named[s] for s in slots)
     return (
-        f"      function {name}w({head})\n"
-        f"      implicit double precision (a-h,o-z)\n"
-        f"      {name}w = {name}({body})\n"
-        f"      return\n"
-        f"      end\n"
-        f"c  register: (1) add the wrapper's file to the {fam} source list\n"
-        f"c      in NNLOJET.mk;  (2) add the token to the matching ant*set\n"
-        f"c      in maple/notation.map AND '<token>={name}w' to its\n"
-        f"c      ant*fortset, so makefort* resolves it.\n")
+        f"  named legs ({','.join(canon)}) = ({','.join(letters)})  "
+        f"are realised by the positional call\n"
+        f"      {name}({','.join(positional)}"
+        + ("," + ",".join(extras) if extras else "") + ")\n"
+        f"  under which the generic cluster rule produces the "
+        f"clusters of THAT leg\n"
+        f"  assignment. Whether it is the right permutation for your "
+        f"line is decided\n"
+        f"  by the measured pole graph / split identity: "
+        f"antenna_datasheet.py show {name}\n"
+        f"  (pole scan via probe-me-ir-structure if not in the "
+        f"datasheet).\n"
+        f"  Do NOT write a slot-reordering wrapper: right value, "
+        f"wrong clusters.\n")
 
 
 # ---------------- notation.map side ----------------
@@ -98,13 +122,23 @@ def parse_notation(text):
     """Parse maple set assignments; resolve unions.
     -> (members, fortmap): members[name] = set of tokens;
        fortmap = {token: fortran_name} from the *fortset definitions."""
+    # brace-balanced capture up to the first ':' at depth 0 — a colon
+    # INSIDE a braced set (the LaTeX comment sets have them) must not
+    # truncate the rhs, which used to crash resolve() on '}'-less text
     raw = {}
-    # capture 'name := { ... }:' including multiline braces, and unions
-    for m in re.finditer(r"(\w+)\s*:=\s*([^:]*?):", text, re.DOTALL):
-        name, rhs = m.group(1), m.group(2).strip()
-        if not name.endswith("set"):
-            continue
-        raw[name] = rhs
+    for m in re.finditer(r"(\w+set)\s*:=", text):
+        name = m.group(1)
+        depth, k = 0, m.end()
+        while k < len(text):
+            ch = text[k]
+            if ch in "{[(":
+                depth += 1
+            elif ch in "}])":
+                depth -= 1
+            elif ch == ":" and depth == 0:
+                break
+            k += 1
+        raw[name] = text[m.end():k].strip()
 
     def resolve(name, seen=None):
         seen = seen or set()
@@ -112,10 +146,36 @@ def parse_notation(text):
             return set()
         seen.add(name)
         rhs = raw[name]
-        if "{" in rhs:
-            inner = rhs[rhs.index("{") + 1:rhs.rindex("}")]
-            return {t.strip() for t in inner.replace("\n", ",").split(",")
-                    if t.strip()}
+        for op, cl in (("{", "}"), ("[", "]")):
+            if op in rhs:
+                if cl not in rhs:
+                    return set()      # malformed rhs — skip, don't crash
+                inner = rhs[rhs.index(op) + 1:rhs.rindex(cl)]
+                out = set()
+                depth = 0
+                cur = ""
+                for ch in inner.replace("\n", ","):
+                    if ch == "(":
+                        depth += 1
+                    elif ch == ")":
+                        depth -= 1
+                    if ch == "," and depth == 0:
+                        if cur.strip():
+                            out.add(cur.strip())
+                        cur = ""
+                    else:
+                        cur += ch
+                if cur.strip():
+                    out.add(cur.strip())
+                # expand op(NAME) indirections through the named list
+                final = set()
+                for t in out:
+                    m2 = re.match(r"op\(\s*(\w+)\s*\)$", t)
+                    if m2:
+                        final |= resolve(m2.group(1), seen)
+                    else:
+                        final.add(t)
+                return final
         # union chain
         out = set()
         for part in re.split(r"\bunion\b", rhs):
@@ -134,10 +194,39 @@ def parse_notation(text):
     return members, fortmap
 
 
+def forwarders(text):
+    """Detect one-line forwarding wrappers in a source file:
+    functions whose only executable statement is
+    NAME = OTHER(...).  -> [(name, other)]"""
+    out = []
+    chunks = re.split(r"(?=^\s{0,6}(?:double\s+precision\s+)?"
+                      r"function\s+\w+)", text, flags=re.I | re.M)
+    for ch in chunks:
+        m = FUNC.match(ch)
+        if not m:
+            continue
+        name = m.group(1)
+        body = []
+        for ln in ch.splitlines()[1:]:
+            s = ln.strip().lower()
+            if not s or ln[:1] in "cC*!" or s.startswith("!"):
+                continue
+            if s.startswith(("implicit", "return", "end", "use ")):
+                continue
+            body.append(ln.strip())
+        if len(body) == 1:
+            m2 = re.match(rf"{re.escape(name)}\s*=\s*(\w+)\s*\(",
+                          body[0], re.I)
+            if m2 and m2.group(1).lower() != name.lower():
+                out.append((name, m2.group(1)))
+    return out
+
+
 # ---------------- audit ----------------
 
 def audit(root, name_filter=None, show_all=False, out=print):
     decls = []
+    fwds = []
     for d in SRC_DIRS:
         p = os.path.join(root, d)
         if not os.path.isdir(p):
@@ -151,8 +240,12 @@ def audit(root, name_filter=None, show_all=False, out=print):
                 continue
             for name, args in parse_decls(text):
                 decls.append((name, args, os.path.join(d, f)))
+            for name, other in forwarders(text):
+                fwds.append((name, other, os.path.join(d, f)))
+    alldecls = decls          # the notation cross-check needs them ALL
     if name_filter:
         decls = [d for d in decls if name_filter.lower() in d[0].lower()]
+        fwds = [d for d in fwds if name_filter.lower() in d[0].lower()]
 
     groups = {}
     flagged = []
@@ -177,9 +270,8 @@ def audit(root, name_filter=None, show_all=False, out=print):
         f"dummy names imply ({len(flagged)}) ===")
     for name, args, path in flagged:
         out(f"\n  {name}({','.join(args)})   [{path}]")
-        out("  wrapper recipe:")
-        for ln in wrapper_recipe(name, args).splitlines():
-            out("    " + ln)
+        for ln in call_recipe(name, args).splitlines():
+            out("  " + ln)
 
     # cross-check notation.map
     npath = os.path.join(root, "maple", "notation.map")
@@ -189,7 +281,10 @@ def audit(root, name_filter=None, show_all=False, out=print):
         tokens = set()
         for s in ("ant30set", "ant31set", "ant40set"):
             tokens |= members.get(s, set())
-        declnames = {n for n, _, _ in decls}
+        declnames = {n for n, _, _ in alldecls}
+        if name_filter:
+            tokens = {t for t in tokens
+                      if name_filter.lower() in t.lower()}
         missing_fort = sorted(
             t for t in tokens
             if fortmap.get(t, f"Full{t}") not in declnames
@@ -197,13 +292,28 @@ def audit(root, name_filter=None, show_all=False, out=print):
         registered = set(fortmap.values()) | set(fortmap.keys())
         unregistered = sorted(
             n for n in declnames
-            if ANTENNA_LIKE.search(n) and n not in registered)
+            if ANTENNA_LIKE.search(n) and n not in registered
+            and (not name_filter or name_filter.lower() in n.lower()))
         out(f"\n=== notation.map tokens with no Fortran entry point "
             f"({len(missing_fort)}) ===")
         out("  " + (", ".join(missing_fort) or "none"))
         out(f"\n=== antenna-like entry points not registered in any "
             f"ant*fortset ({len(unregistered)}) ===")
         out("  " + (", ".join(unregistered) or "none"))
+        stale = [(n, o, p) for n, o, p in fwds if n not in registered]
+        out(f"\n=== UNREGISTERED forwarding wrappers "
+            f"({len(stale)}) ===")
+        if stale:
+            for n, o, p in stale:
+                out(f"  {n} -> {o}   [{p}]")
+            out("  ^ local renamings no ant*fortset resolves: a .map "
+                "cannot call them, their")
+            out("    header claims are unverified and rot silently — "
+                "measure the TARGET with")
+            out("    antenna_datasheet.py / the pole scan instead of "
+                "trusting the comment.")
+        else:
+            out("  none")
     else:
         out("\n(notation.map not found — cross-check skipped)")
 
@@ -213,7 +323,8 @@ def audit(root, name_filter=None, show_all=False, out=print):
 def selftest():
     """Synthetic sources and notation text — encodes no real antenna's
     order. Checks declaration parsing, slot extraction, the ascending
-    test, wrapper emission and the notation cross-check."""
+    test, the permuted-call recipe, the forwarding-wrapper scan and
+    the notation cross-check (including a colon inside a braced set)."""
     src = (
         "      function AAA40(i1,i2,i3,i4,ipset)\n"
         "      end\n"
@@ -222,9 +333,15 @@ def selftest():
         "      double precision function CCC31(i3,i2,i1,ipset,renscale)\n"
         "      end\n"
         "      function helper(x,y)\n"
+        "      end\n"
+        "      function BBB40bb(i1,i2,i3,i4,ipset)\n"
+        "      implicit double precision (a-h,o-z)\n"
+        "      BBB40bb = BBB40(i1,i2,i4,i3,ipset)\n"
+        "      return\n"
         "      end\n")
     decls = parse_decls(src)
-    assert [d[0] for d in decls] == ["AAA40", "BBB40", "CCC31", "helper"]
+    assert [d[0] for d in decls] == \
+        ["AAA40", "BBB40", "CCC31", "helper", "BBB40bb"]
     s, e, asc = slot_info(decls[0][1])
     assert s == ["i1", "i2", "i3", "i4"] and e == ["ipset"] and asc
     s, e, asc = slot_info(decls[1][1])
@@ -233,12 +350,17 @@ def selftest():
     assert not asc and e == ["ipset", "renscale"]
     assert slot_info(decls[3][1])[0] == []          # no slots -> skipped
 
-    w = wrapper_recipe("BBB40", decls[1][1])
-    assert "function BBB40w(i1,i2,i3,i4,ipset)" in w
-    assert "BBB40w = BBB40(i1,i3,i4,i2,ipset)" in w
-    w = wrapper_recipe("CCC31", decls[2][1])
-    assert "function CCC31w(i1,i2,i3,ipset,renscale)" in w
-    assert "CCC31w = CCC31(i3,i2,i1,ipset,renscale)" in w
+    # permuted-call recipe: declared (i1,i3,i4,i2) -> named
+    # (i1,i2,i3,i4)=(A,B,C,D) realised by positional (A,C,D,B)
+    w = call_recipe("BBB40", decls[1][1])
+    assert "BBB40(A,C,D,B,ipset)" in w
+    assert "Do NOT write a slot-reordering wrapper" in w
+    w = call_recipe("CCC31", decls[2][1])
+    assert "CCC31(C,B,A,ipset,renscale)" in w
+
+    # forwarding-wrapper detection
+    fw = forwarders(src)
+    assert fw == [("BBB40bb", "BBB40")], fw
 
     notation = (
         "antXXFFset:={TOKA, TOKB}:\n"
@@ -246,13 +368,17 @@ def selftest():
         "ant40set:= antXXFFset union antXXIFset:\n"
         "ant30set:={}:\n"
         "ant31set:={}:\n"
-        "XXfortset:={\nTOKA=AAA40,\nTOKB=BBB40w\n}:\n"
-        "ant40fortset:=XXfortset:\n")
+        "XXfortset:={\nTOKA=AAA40,\nTOKB=BBB40\n}:\n"
+        "ant40fortset:=XXfortset:\n"
+        # a colon INSIDE a braced set must not truncate the capture —
+        # this input crashed the pre-fix parser
+        "commentset:={\"TOKA\"=\"Eqs.~(5.27): see paper\"}:\n")
     members, fortmap = parse_notation(notation)
     assert members["ant40set"] == {"TOKA", "TOKB", "TOKC"}, members
-    assert fortmap == {"TOKA": "AAA40", "TOKB": "BBB40w"}
+    assert fortmap == {"TOKA": "AAA40", "TOKB": "BBB40"}
     # TOKC has no fortmap entry and no FullTOKC declaration -> missing;
-    # CCC31 is antenna-like and unregistered
+    # CCC31 is antenna-like and unregistered; BBB40bb is an
+    # unregistered forwarding wrapper
     lines = []
     import tempfile
     with tempfile.TemporaryDirectory() as root:
@@ -264,9 +390,10 @@ def selftest():
         audit(root, out=lines.append)
     txt = "\n".join(lines)
     assert "PERMUTED" in txt
-    assert "BBB40w = BBB40(i1,i3,i4,i2,ipset)" in txt
+    assert "BBB40(A,C,D,B,ipset)" in txt
     assert "TOKC" in txt.split("no Fortran entry point")[1]
     assert "CCC31" in txt.split("not registered")[1]
+    assert "BBB40bb -> BBB40" in txt.split("forwarding wrappers")[1]
     print("antenna_slots selftest OK")
 
 

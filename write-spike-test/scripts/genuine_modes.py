@@ -295,7 +295,10 @@ def main():
         selftest()
         return
     spec = json.load(open(sys.argv[1]))
-    partons = {int(k): v for k, v in spec["partons"].items()}
+    # keys are momentum labels: ints in check-program specs, but any
+    # string label works (e.g. the l,k,i,j,m of a .map's FN line)
+    partons = {int(k) if str(k).isdigit() else k: v
+               for k, v in spec["partons"].items()}
     res = classify(partons, spec["born"], spec.get("families"))
     if "--json" in sys.argv:
         json.dump(res, sys.stdout, indent=1)

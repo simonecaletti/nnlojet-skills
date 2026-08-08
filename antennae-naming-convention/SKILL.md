@@ -12,9 +12,12 @@ description: >
   interpreting spike-test failures and layer-check residues. The name
   grammar fixes an antenna's SPECIES only; slot PLUMBING is audited
   mechanically (antenna_slots.py — declaration order vs the positional
-  cluster rule, with wrapper recipes) and slot CONVENTIONS are measured
-  (pole scan, probe-me-ir-structure). Read-only reference for the repo —
-  modify nothing there.
+  cluster rule, with permuted-call recipes) and slot CONVENTIONS are
+  MEASURED and CACHED in the antenna datasheet
+  (antenna_datasheet.py — pole graphs, soft dipoles, split identities,
+  reduced-cluster flavour semantics), falling back on the pole scan
+  (probe-me-ir-structure) for antennae not yet in it. Read-only
+  reference for the repo — modify nothing there.
 ---
 
 # NNLOJET antenna naming and limit coverage
@@ -29,16 +32,64 @@ filename SUFFIX not a subdirectory: `autoX30FFint.f`, `autoX30IFint.f`,
 `autoP0IF.f`, `autoP0FI.f`).
 
 **Species vs convention — the one-line rule: before USING an antenna
-you have not used before, run the pole scan
-(probe-me-ir-structure).** This skill's letter grammar fixes the
-SPECIES (which parton kinds, which limit families). Which argument
-slots are the hard radiators, which are unresolved, how a `Full`
-composite divides its singularities between its sub-antennae, and
-which dipole its soft limit actually sits on are a separate
+you have not used before, look it up in the DATASHEET; if absent, run
+the pole scan (probe-me-ir-structure).** This skill's letter grammar
+fixes the SPECIES (which parton kinds, which limit families). Which
+argument slots are the hard radiators, which are unresolved, how a
+`Full` composite divides its singularities between its sub-antennae,
+and which dipole its soft limit actually sits on are a separate
 CONVENTION, and the two are independent. Most `src/X40/*.f` headers
 state only a paper equation number, and `maple/notation.map` gives the
 token, not the convention — do not infer it from the letter, the
-paper, or a sibling `.map`; measure it.
+paper, or a sibling `.map`; measure it (or read the cached
+measurement).
+
+## The antenna datasheet — measured operative description, cached
+
+`assets/antenna_datasheet.json` (generated, never hand-edited) carries
+per antenna the fields a term author needs and source headers do not
+reliably state — each with provenance, re-verifiable at any time:
+
+- MEASURED pole graph: singular 2-parton invariants with powers; which
+  legs go soft and (3-parton antennae) which dipole the eikonal sits
+  on, with snapped rational coefficient; singular triple-collinear /
+  double-soft configurations. Absence from a list = the antenna does
+  NOT have that pole (e.g. G30FF/E30FF carry no soft limit and no
+  gluon–quark collinear — the poles an antenna does NOT have are as
+  load-bearing as the ones it has).
+- `requires_split`: whether the generic positional cluster rule
+  `X40(A,B,C,D) -> [A,B,C],[D,C,B]` supports every measured pole. An
+  ENDPOINT-pair pole s(1,4) cannot sit in either cluster, so a Full
+  composite carrying one (FullE40's quark||gluon pole, FullD40,
+  FullG40, FullF40) MUST be split into halves with their own mappings.
+- for splittable composites: the halves and the NUMERICALLY VERIFIED
+  calling identity (e.g. `FullE40(A,B,C,D) = E40a(A,B,C,D) +
+  E40b(A,D,C,B)`; `FullF30FF(A,B,C) = f30FF(ABC)+f30FF(BCA)+
+  f30FF(CAB)`) — a stale header comment cannot mislead, because the
+  identity is re-checked on random phase-space points.
+- declared positional slot species (quark-kind vs gluon), same-flavour
+  pair constraints on the UNRESOLVED slots, and the reduced-cluster
+  flavour semantics (what each cluster BECOMES — naive net-flavour
+  arithmetic is WRONG for the E/G families and this field is the
+  correct bookkeeping).
+- the J21/J22 integrated-dipole coefficient lines mentioning the
+  antenna, parsed from `maple/form/common/J2[12].map`.
+- 4-parton soft limits factor as eik x reduced X30, not eik x const —
+  the datasheet says so per leg and defers to the residue fitter
+  (probe-me-ir-structure mode 3).
+
+```bash
+python .claude/skills/antennae-naming-convention/scripts/antenna_datasheet.py \
+    show E40                                  # read the cached entry
+python .../antenna_datasheet.py measure <NAME> --testdir test/process/<P>
+python .../antenna_datasheet.py verify  <NAME> --testdir ...   # re-measure+diff
+python .../antenna_datasheet.py static  --root .   # refresh declared fields
+```
+
+`measure` needs any BUILT spike-test object dir with 7-parton phase
+space; the antenna is evaluated on its own legs, so entries are
+process-independent. The datasheet feeds `pole_ledger.py`
+(write-subtraction) — the static bookkeeping check of a whole `.map`.
 
 **Slot plumbing — the cheap first lookup (run BEFORE the pole scan,
 not instead of it).** The maple cluster rule is positional, but the
@@ -54,16 +105,25 @@ python .claude/skills/antennae-naming-convention/scripts/antenna_slots.py \
 ```
 
 It groups every entry point under `src/X30|X31|X40|X30int` by
-slot-declaration order, FLAGS the permuted ones with a ready wrapper
-recipe (a one-line function restoring ascending positional order, plus
-its NNLOJET.mk and notation.map registrations), and cross-checks
-`ant30set`/`ant31set`/`ant40set` against the Fortran in both
-directions (tokens with no entry point; entry points never
-registered). Three different questions, in increasing cost order: the
-NAME fixes the species, THIS SCRIPT fixes the slot plumbing, the POLE
-SCAN fixes the convention. A flag means "check before positional use",
-not "wrong" — some species' canonical chains are legitimately
-non-consecutive; the pole scan decides.
+slot-declaration order, FLAGS the permuted ones with an
+ARGUMENT-PERMUTATION recipe (how a positional call realises the named
+legs, e.g. `E40b(A,D,C,B)` for named `(i1,i3,i4,i5)=(A,B,C,D)`),
+cross-checks `ant30set`/`ant31set`/`ant40set` against the Fortran in
+both directions (tokens with no entry point; entry points never
+registered), and scans for UNREGISTERED FORWARDING WRAPPERS — local
+one-line renamings no `ant*fortset` resolves (e.g. an `E40bb.f`):
+their header claims are unverified and rot silently, so measure the
+TARGET instead of trusting the comment. **The script never emits a
+slot-reordering wrapper**: a wrapper restoring ascending order gives
+the right VALUE with the WRONG clusters under the generic positional
+cluster rule (write-subtraction's argument-alignment rule) — permute
+the `.map` ARGUMENTS instead, and let the datasheet's measured pole
+graph / split identity decide which permutation is physically right.
+Three different questions, in increasing cost order: the NAME fixes
+the species, THIS SCRIPT fixes the slot plumbing, the DATASHEET /
+POLE SCAN fixes the convention. A flag means "check before positional
+use", not "wrong" — some species' canonical chains are legitimately
+non-consecutive; the measurement decides.
 
 ## The name grammar
 
@@ -365,7 +425,9 @@ configuration for another.
    — generated Fortran survives when `.map` sources do not, and a
    generated call site shows argument order, mapping, coefficient and
    the counterterm it pairs with (procedure in write-subtraction).
-5. Before first use in a new term: pole scan
+5. Before first use in a new term: `antenna_datasheet.py show <name>`
+   (cached measured convention); if the antenna is not in the
+   datasheet, `measure` it, or pole-scan directly
    (probe-me-ir-structure) — see the species-vs-convention rule at the
    top.
 

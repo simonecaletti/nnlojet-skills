@@ -42,14 +42,24 @@ answers in minutes-to-hours:
 1. **Name lookups** — me-naming-convention (ME grammar, crossing
    relatives), antennae-naming-convention (species, layer,
    FF/IF/FI/II correspondences); list-channels / list-processes for
-   what exists.
-2. **Static scans** — `antenna_slots.py` (slot plumbing,
+   what exists. The ANTENNA DATASHEET
+   (`antenna_datasheet.py show <name>`, antennae-naming-convention) is
+   a name lookup for MEASURED facts: pole graphs, soft dipoles,
+   `requires_split` verdicts, verified split identities,
+   reduced-cluster flavour semantics, J21/J22 coefficients — cached
+   with provenance, so reading it costs seconds where the pole scan
+   costs a run.
+2. **Static scans** — `pole_ledger.py` (below: the whole-`.map`
+   bookkeeping check against the datasheet — run it on EVERY edit
+   before generating), `antenna_slots.py` (slot plumbing,
    antennae-naming-convention), `genuine_modes.py` (which modes are
    real, write-spike-test), precedent grep over generated `auto*.f`
    (section below).
 3. **One-run measurements** — per-line attribution
    (`wt_attribute.py`, run-spike-test), pole scan, dipole fit
-   (probe-me-ir-structure).
+   (probe-me-ir-structure) — for antennae the datasheet does not
+   cover yet (then `measure` them INTO it, so the next term pays
+   nothing).
 4. **Multi-run measurements** — residue fits (probe-me-ir-structure
    mode 3).
 5. **Build cycles** — the block composer below (with variant AXES, so
@@ -279,6 +289,46 @@ while `0.7` is nothing. Collinear fits are only good to ~3 digits
 (probe-me-ir-structure), so decide against the rational set, never
 against a decimal threshold.
 
+## The pole ledger — static bookkeeping of the whole `.map`, no build
+
+After every edit and BEFORE generating, run the ledger: it checks the
+written file against the MEASURED antenna datasheet
+(antennae-naming-convention) in seconds —
+
+```bash
+python .claude/skills/write-subtraction/scripts/pole_ledger.py \
+       <TERM>.map --spec spec.json          # --selftest available
+# spec.json: {"flavours": {"l":"qb1","k":"g",...}, "born": [["q1","qb1","g"]]}
+# labels = the FN argument names of the .map
+```
+
+What it catches (each verified on real mutations):
+- a **Full composite whose pole graph the mapping cannot support**
+  used directly — e.g. FullE40's endpoint quark||gluon pole — with the
+  numerically verified split identity printed
+  (`E40a(A,B,C,D)+E40b(A,D,C,B)`). This error class costs DAYS at the
+  spike-test level and seconds here;
+- **stale or mistyped clusters**: every antenna argument must be a
+  momentum the line actually has at that point, and the reduced-ME /
+  JET argument sets must be exactly what the line's mappings produce;
+- **species and flavour-pair violations** per slot (gluon slot fed a
+  quark; an unresolved-pair slot pair not holding a same-flavour
+  quark/antiquark pair) — using the datasheet's reduced-cluster
+  semantics, because naive net-flavour arithmetic is wrong for the
+  E/G families;
+- **uncovered genuine modes**: every genuine ss/sco mode needs an S,a
+  line singular there, every genuine ds/tc mode an X40 line;
+- **unpaired spurious singles**: every flavour-valid single pole of
+  every X40 line must have a negative iterated line on the same
+  invariant; orphaned counterterms and sign-rule violations warn.
+
+SCOPE — existence, not sufficiency: the ledger detects MISSING
+structure; a block touching the right invariants with the wrong
+coefficients or mapping still passes. Coefficient-level completeness
+remains the spike test's job. Order of operations:
+`predict_blocks.py --audit` (counts) → `pole_ledger.py` (invariants)
+→ generate → spike test (numbers).
+
 The line list is DERIVED from the full ME, not invented:
 
 1. **Enumerate the limits of the full ME — by the reduced-Born rule**
@@ -487,7 +537,12 @@ The line list is DERIVED from the full ME, not invented:
    two quarks of that Born, again at coefficient 1 with the reduced-ME
    gluon ordering locked to the radiator. What is NOT correct is
    averaging over radiators and orderings with 1/2 factors: it
-   reproduces the collinear limit and matches no X40.
+   reproduces the collinear limit and matches no X40. The G30- and
+   E30-radiator arrangements are ALTERNATIVE COMPLETE DECOMPOSITIONS
+   of the same block (both verified on the same channel with their
+   matching X40 pairings) — treat the choice as a `map_blocks.py`
+   AXIS, and note it constrains the S,b1/S,b2 blocks built on it: an
+   E30-radiator S,a pairs with the E40 whose quark radiator it uses.
 
    **The minimal buildable/testable unit is S,a + S,b1 + S,b2 for one
    flavour sector — never S,a alone.** The X40 carries a spurious
@@ -556,14 +611,18 @@ the ME is finite in, and every downstream counterterm attempt fails
 for reasons that look like physics errors. The generic procedure
 (applies to D40, G40, H40, and every IF/FI/II variant):
 
-0. **Run the slot audit first** (`antenna_slots.py`,
-   antennae-naming-convention): if the entry point is flagged — its
-   Fortran dummy arguments are not declared in ascending positional
-   order — write the emitted wrapper BEFORE anything else, and write
-   the `.map` against the wrapper. This is a static scan; it costs
-   seconds and would otherwise cost build cycles.
+0. **Read the datasheet first** (`antenna_datasheet.py show <name>`,
+   antennae-naming-convention): the measured pole graph,
+   `requires_split` verdict and verified split identity are cached
+   there for the FF set — steps 1–2 below are then already answered.
+   Run the slot audit (`antenna_slots.py`) for the plumbing; a flagged
+   (permuted-declaration) entry point is handled by PERMUTING THE
+   `.map` ARGUMENTS per the audit's call recipe — NEVER by writing a
+   slot-reordering wrapper (the rule below; the wrapper is the error).
+   Both are static scans; seconds, not build cycles.
 1. **Measure the antenna's pole graph** (probe-me-ir-structure pole
-   scan).
+   scan) if it is not in the datasheet — and then `measure` it INTO
+   the datasheet so the next term reads it for free.
 2. **Read the chain off the pole graph**: the endpoints are the
    radiators, the interior legs the unresolved pair.
 3. **Assign physical partons to slots so that BOTH hold**: every
@@ -824,7 +883,12 @@ The failing mode reported by run-spike-test names the limit (e.g.
 "5||6 collinear", "6 soft", "triple collinear 567"). **Re-run rung 0
 first** — `predict_blocks.py --audit <TERM>.map` costs seconds and, if
 a whole block is missing or an extra one is present, tells you so
-before any per-line reasoning. Then use the mode→block
+before any per-line reasoning — **then the pole ledger**
+(`pole_ledger.py`, section above): a split-required composite, a
+stale cluster or an unpaired spurious single explains a whole
+failure-mode FAMILY at once (a FullE40 used unsplit fails every
+gluon-touching mode simultaneously while the pair modes stay exact).
+Then use the mode→block
 diagnosis in run-spike-test: only blocks whose antennae have a
 pole in that mode's invariants can be responsible, the ratio's
 CHARACTER (stable offset vs wide spread vs tails) narrows the error
