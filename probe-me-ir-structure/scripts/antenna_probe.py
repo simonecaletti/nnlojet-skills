@@ -46,9 +46,14 @@ Spec fields:
 """
 import itertools
 import json
+import os
 import sys
 
-FAM_ID = {"ss": 1, "sco": 2, "ds": 3, "tc": 4}
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import irlimits  # noqa: E402  (shared mode vocabulary — genuine_modes families)
+
+# collinear pair to rotate for azimuthal averaging, per family
+_ROT_PAIR = {"sco": (0, 1), "tc": (0, 1), "sc": (1, 2), "dc": (0, 1)}
 
 
 def modes_for(fs, families):
@@ -58,44 +63,20 @@ def modes_for(fs, families):
     if "ss" in families:
         for i in fs:
             out.append(("ss", (i,), tuple(sorted(fsset - {i})),
-                        f"{i} soft"))
+                        irlimits.mode_name("ss", (i,))))
     if "sco" in families:
         for i, j in itertools.combinations(fs, 2):
             out.append(("sco", (i, j), tuple(sorted(fsset - {i, j})),
-                        f"{i}||{j} coll"))
+                        irlimits.mode_name("sco", (i, j))))
     if "ds" in families:
         for i, j in itertools.combinations(fs, 2):
             out.append(("ds", (i, j), tuple(sorted(fsset - {i, j})),
-                        f"{i},{j} soft"))
+                        irlimits.mode_name("ds", (i, j))))
     if "tc" in families:
         for i, j, k in itertools.combinations(fs, 3):
             out.append(("tc", (i, j, k), tuple(sorted(fsset - {i, j, k})),
-                        f"{i}||{j}||{k} coll"))
+                        irlimits.mode_name("tc", (i, j, k))))
     return out
-
-
-def gen_call(fam, npar, u, sp):
-    args = {"ss": list(u) + ["em1"] + list(sp),
-            "sco": list(u) + ["em1"] + list(sp),
-            "ds": list(u) + ["em1"] + list(sp),
-            "tc": list(u) + ["em1"] + list(sp)}[fam]
-    astr = ",".join(str(a) for a in args)
-    return f"call get_{fam}{npar}(sqrts_proc,{astr})"
-
-
-def em_expr(fam):
-    # conventions of the check-program suite (write-spike-test skill)
-    return ("em1=sqrts_proc*dsqrt(1d0-xs)" if fam in ("ss", "ds")
-            else "em1=sqrts_proc*xs")
-
-
-def s_expr(fam, npar, u):
-    if fam == "sco":
-        return f"abs(s{npar}({u[0]},{u[1]}))/sqrts_proc**2"
-    if fam == "tc":
-        return (f"(abs(s{npar}({u[0]},{u[1]}))+abs(s{npar}({u[0]},{u[2]}))"
-                f"+abs(s{npar}({u[1]},{u[2]})))/sqrts_proc**2")
-    return "xs"  # soft families: scan-parameter proxy (see module docstring)
 
 
 HDR = """      program polescan_gen
@@ -130,8 +111,7 @@ c     ---- mode {imode}: {name} ----
         xs = xslist(ix)
         nacc = 0
         do ii=1,npt
-          {em}
-          {gen}
+{limit_block}
           ipass=1
 {cuts}          a = {target}
 {azim}          if (a.ne.a) cycle
@@ -232,12 +212,20 @@ def f77(lines, indent="      "):
 
 def generate(spec):
     npar = spec["npar"]
-    fs = spec["fs_partons"]
-    default_fams = ["ss", "sco"] + (["ds", "tc"] if npar >= 6 else [])
-    families = spec.get("families", default_fams)
-    if npar == 5:
-        families = [f for f in families if f in ("ss", "sco")]
-    modes = modes_for(fs, families)
+    if "modes" in spec:
+        # explicit limits in the shared vocabulary (irlimits.py) —
+        # allows sc/dc and subsets, same families as genuine_modes.py
+        modes = [(m["family"], tuple(m["unresolved"]),
+                  tuple(m.get("spectators", [])),
+                  irlimits.mode_name(m["family"], m["unresolved"]))
+                 for m in spec["modes"]]
+    else:
+        fs = spec["fs_partons"]
+        default_fams = ["ss", "sco"] + (["ds", "tc"] if npar >= 6 else [])
+        families = spec.get("families", default_fams)
+        if npar == 5:
+            families = [f for f in families if f in ("ss", "sco")]
+        modes = modes_for(fs, families)
     if not modes:
         raise ValueError("empty mode table")
     xs = spec["xs_list"]
@@ -255,13 +243,16 @@ def generate(spec):
 
     for imode, (fam, u, sp, name) in enumerate(modes, 1):
         az = ""
-        if azim and fam in ("sco", "tc"):
-            az = AZIM.format(npar=npar, i=u[0], j=u[1], target=target)
+        if azim and fam in _ROT_PAIR:
+            ra, rb = _ROT_PAIR[fam]
+            az = AZIM.format(npar=npar, i=u[ra], j=u[rb], target=target)
         ct = CUTS.format(cuts_call=cuts) if cuts else ""
-        out += MODE_HEAD.format(imode=imode, name=name, em=em_expr(fam),
-                                gen=gen_call(fam, npar, u, sp),
+        llines = irlimits.limit_lines(fam, npar, u, sp)
+        limit_block = "\n".join("          " + ln for ln in llines)
+        out += MODE_HEAD.format(imode=imode, name=name,
+                                limit_block=limit_block,
                                 cuts=ct, target=target, azim=az,
-                                sexpr=s_expr(fam, npar, u))
+                                sexpr=irlimits.s_expr(fam, npar, u))
     out += TAIL
     return out
 
@@ -297,6 +288,21 @@ def selftest():
             assert not ("a = dummy_ant" in ln and "c " in ln[:2]), \
                 f"fused comment/statement: {ln!r}"
         assert "end program polescan_gen" in src
+    # explicit modes in the shared vocabulary (enables sc/dc)
+    spec = {"process": "p", "sqrts": 100.0, "init_kin": [5, 10],
+            "npar": 7, "fs_partons": [3, 4, 5, 6, 7],
+            "decl_lines": [], "setup_lines": ["continue"],
+            "target": "dummy_ant(3,4,5)",
+            "xs_list": [1e-7, 1e-8, 1e-9], "npt": 10,
+            "modes": [{"family": "sc", "unresolved": [5, 3, 4],
+                       "spectators": [6, 7]},
+                      {"family": "dc", "unresolved": [3, 4, 6, 7],
+                       "spectators": [5]}]}
+    src = generate(spec)
+    assert "call get_sc7(sqrts_proc,5,3,4,em1,em2,6,7)" in src
+    assert "call get_dc7(sqrts_proc,3,4,em1,6,7,em2,5)" in src
+    assert "call rotp7(3,4)" in src, "sc must rotate its collinear pair"
+    assert src.count("'mode: ") == 2
     print("antenna_probe selftest OK")
 
 

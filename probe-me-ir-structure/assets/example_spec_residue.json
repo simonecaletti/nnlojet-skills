@@ -1,0 +1,51 @@
+{
+  "_comment": [
+    "Mode 3 (residue fit): what does an X40 reduce to on one of its",
+    "boundaries?  target = the four-parton antenna itself (kin-set",
+    "index as last argument); basis = candidate lower-antenna",
+    "products, each optionally evaluated on its own mapped momenta",
+    "(map + redme fields) — the shape needed for S,b2 iterated",
+    "counterterms and S,c soft differences (write-subtraction).",
+    "Every UPPERCASE token is a placeholder: IA,IB,... = momentum",
+    "indices, ISOFT = the soft leg, X40NAME/X30NAME = antenna entry",
+    "points, REDME = reduced ME on the j1..jN mapped indices.",
+    "Do NOT copy argument orders blindly - run antenna_slots.py",
+    "(slot plumbing) and the pole scan (convention) first; fit both",
+    "candidate orders if in doubt: the wrong one is not rational.",
+    "The 'limit' field uses the shared mode vocabulary (irlimits.py):",
+    "primary here is 'one X40 leg soft'.  For the boundary where one",
+    "leg is soft WHILE a pair stays collinear, swap in _alt_limit_sc.",
+    "Degeneracy caveat: start from 2-3 basis entries and grow;",
+    "symmetry-related orientations are degenerate in a soft limit."
+  ],
+  "process": "MYPROC",
+  "sqrts": 1000.0,
+  "init_kin": [5, 10],
+  "npar": 7,
+  "decl_lines": [
+    "common /koppel/ nf,nc,b0"
+  ],
+  "setup_lines": [
+    "nf=5"
+  ],
+  "mode": "collinear",
+  "limit": {"family": "ss", "unresolved": ["ISOFT"],
+            "spectators": ["IA", "IB", "IC", "ID"]},
+  "_alt_limit_sc": {"family": "sc", "unresolved": ["ISOFT", "IA", "IB"],
+                    "spectators": ["IC", "ID"]},
+  "target": "X40NAME(IA,ISOFT,IB,IC,7)",
+  "xs_list": [1e-7, 1e-8, 1e-9],
+  "npt": 200,
+  "basis": [
+    {"label": "X30xX30 iterated, ordering 1",
+     "antenna": "X30NAME(IA,ISOFT,IB,7)*X30NAME2(j1,j2,j3,6)",
+     "map": "call set_map(7,6, (/IA,ISOFT,IB/), (/2,1,IREST/), ipass)",
+     "redme": "1d0"},
+    {"label": "X30xX30 iterated, ordering 2",
+     "antenna": "X30NAME(IB,ISOFT,IA,7)*X30NAME2(j3,j2,j1,6)",
+     "map": "call set_map(7,6, (/IB,ISOFT,IA/), (/2,1,IREST/), ipass)",
+     "redme": "1d0"},
+    {"label": "pure eikonal on the (IA,IB) dipole",
+     "antenna": "X30NAME(IA,ISOFT,IB,7)"}
+  ]
+}

@@ -20,16 +20,32 @@ description: >
 # Probing the IR structure of a matrix element or antenna function
 
 One shared machinery — phase-space drivers into IR limits, a
-least-squares fit with degeneracy refusal — behind three questions:
+least-squares fit with degeneracy refusal — behind three questions,
+each feeding a specific construction in write-subtraction:
 
 1. **Dipole fit** (`scripts/gen_probe.py`): fit `ME/redME` (soft) or
    `ME` (collinear) onto an antenna basis → exact rational
-   coefficients = the colour structure.
+   coefficients = the colour structure. **Feeds: the S,a block's
+   dipole content.**
 2. **Pole scan** (`scripts/antenna_probe.py`): drive an antenna into
-   EVERY limit of the phase space → its pole graph.
-3. **Residue fit** (`scripts/gen_probe.py`, `target` = an antenna):
-   fit an X40's residue in a limit onto lower-antenna(×reduced-ME)
-   products → what it reduces to on that boundary.
+   EVERY limit of the phase space → its pole graph. **Feeds: the
+   antenna's slot/radiator convention** (after `antenna_slots.py`
+   settled the cheaper slot-plumbing question —
+   antennae-naming-convention).
+3. **Residue fit** (`scripts/gen_probe.py`, `target` = an antenna;
+   runnable example: `assets/example_spec_residue.json`): fit an
+   X40's residue in a limit onto lower-antenna(×reduced-ME) products
+   → what it reduces to on that boundary. **Feeds: the S,b2 iterated
+   counterterms and the S,c soft differences** — including deciding
+   between the two writings of an iterated counterterm (fit both
+   orderings; the wrong one is not rational).
+
+All three name their limits in ONE mode vocabulary
+(`scripts/irlimits.py` — the same `ss/sco/ds/tc/sc/dc` + indices that
+`genuine_modes.py` in write-spike-test uses): a spec says
+`"limit": {"family": "sc", "unresolved": [ISOFT,IA,IB], ...}` instead
+of hand-writing the generator call; verbatim `limit_call` remains the
+escape hatch.
 
 ## The measure-before-you-use rule
 
@@ -124,9 +140,11 @@ gfortran -o probe_gen probe_gen.o $(ls obj/*.o | grep -v <checkprog>.o)  # spike
 OMP_NUM_THREADS=1 ./probe_gen
 ```
 
-The spec is ~15 lines (see `scripts/example_spec.json`); a
-hand-editable template with identical structure is
-`assets/probe_template.f` for one-offs. Both scripts have a
+The spec is ~15 lines (`scripts/example_spec.json` for mode 1,
+`assets/example_spec_residue.json` for mode 3 — the latter also shows
+the soft-while-collinear `sc` boundary driver); a hand-editable
+template with identical structure is `assets/probe_template.f` for
+one-offs. Both scripts have a
 `--selftest` that checks emitted-code structure WITHOUT encoding any
 physics answer (`python gen_probe.py --selftest`); run it after any
 edit to the generators.
@@ -156,9 +174,13 @@ spin-independent):
 - one `set_map` serves every basis term (leading-power reduced
   kinematics are mapping-insensitive);
 - basis functions have distinct poles `1/(s_ak s_kb)` → well-conditioned,
-  and conditioning IMPROVES as x -> 0. Go deep (x ~ 1e-10). But mind
-  the degeneracy caveat above when the basis contains symmetry-related
-  orientations of one antenna.
+  and conditioning IMPROVES as x -> 0. Deep x (down to ~1e-10) is
+  allowed here — but the validated object is still STABILITY of the
+  coefficients across the scan (typical range 1e-7...1e-9, deeper as a
+  check), not one deep evaluation; if the deepest x goes numerically
+  unstable, report the x at which it sets in rather than dropping it
+  silently. Mind the degeneracy caveat above when the basis contains
+  symmetry-related orientations of one antenna.
 
 **Collinear** — two independent problems, both fatal if ignored:
 1. *Spin correlations.* Quark parent (q->qg): scalar factorisation holds
