@@ -237,6 +237,55 @@ def selftest():
     print("wt_attribute selftest OK")
 
 
+def repo_root(start=None):
+    """Nearest ancestor holding NNLOJET.mk (the maple/ generators live
+    next to it). None if we are not inside a tree."""
+    import os
+    d = os.path.abspath(start or os.getcwd())
+    while True:
+        if os.path.exists(os.path.join(d, "NNLOJET.mk")):
+            return d
+        parent = os.path.dirname(d)
+        if parent == d:
+            return None
+        d = parent
+
+
+def check_generator_support():
+    """Fail BEFORE a regenerate+rebuild cycle if this tree's maple
+    generators have no -Dwtdebug hook. The dump is opt-in at generation
+    time, so without the hook there is nothing to attribute and the run
+    is wasted — which is exactly the cost this script exists to avoid.
+    """
+    import os
+    root = repo_root()
+    if root is None:
+        return                      # not in a tree: let the run decide
+    gens = [os.path.join(root, "maple", g)
+            for g in ("makefortRR", "makefortRV", "makeformVV")]
+    present = [g for g in gens if os.path.exists(g)]
+    if not present:
+        return
+    for g in present:
+        try:
+            if "wtdebug" in open(g, errors="replace").read():
+                return              # at least one generator supports it
+        except OSError:
+            return
+    raise SystemExit(
+        "ERROR: none of this tree's maple generators supports -Dwtdebug\n"
+        "       (checked: " + ", ".join(os.path.relpath(g, root)
+                                        for g in present) + ")\n"
+        "  The per-line dump is emitted by the GENERATOR, so no run of the\n"
+        "  check program can produce WTDBG lines here — regenerating and\n"
+        "  rebuilding first would be wasted.\n"
+        "  Use instead: block bisection with map_blocks.py compose\n"
+        "  (write-subtraction) + scan_blocks.py, which needs no dump.\n"
+        "  To enable attribution in this tree, add the wtdebug branch to\n"
+        "  maple/makefortRR (emit `if(wtdebug=1)` write statements of the\n"
+        "  form  WTDBG <fn> <i> <jpass> <wt>  next to each wt(i) fill).")
+
+
 def main():
     if "--selftest" in sys.argv:
         selftest()
@@ -257,6 +306,7 @@ def main():
         lines = open(args.log).read().splitlines()
     else:
         import os
+        check_generator_support()
         env = dict(os.environ, NNLOJET_WTDEBUG="1", OMP_NUM_THREADS="1")
         proc = subprocess.run(args.cmd, shell=True, env=env,
                               capture_output=True, text=True)

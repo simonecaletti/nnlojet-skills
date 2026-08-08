@@ -67,7 +67,20 @@ answers in minutes-to-hours:
    run-spike-test's `scan_blocks.py` for an unattended ranked sweep,
    plus autogen-subtraction's regenerate+rebuild wrapper. Never hand-roll
    the regenerate–restore–rebuild sequence; the wrapper is that
-   sequence.
+   sequence, and it is this script — no need to load the whole skill to
+   use it:
+
+   ```bash
+   .claude/skills/autogen-subtraction/scripts/regen_rebuild.sh \
+       -n 13 -l RR -s src/process/epem -t test/process/epem \
+       -m check5to3 -j 8
+   ```
+
+   It runs the pole ledger first and refuses to build a term that fails
+   it, restores generated files that changed only in boilerplate, and
+   retries the build at `-j1` on the cold-start module race
+   (`Cannot open module file 'dis_mod.mod'`) — all three of which you
+   will otherwise rediscover by hand.
 
 ## Where things live
 
@@ -298,9 +311,23 @@ written file against the MEASURED antenna datasheet
 ```bash
 python .claude/skills/write-subtraction/scripts/pole_ledger.py \
        <TERM>.map --spec spec.json          # --selftest available
-# spec.json: {"flavours": {"l":"qb1","k":"g",...}, "born": [["q1","qb1","g"]]}
+# spec.json: {"flavours": {"l":"qb1","k":"g",...}, "born": [["q1","qb1","g"]],
+#             "chains": [["l","m","i","j","k"], ["l","i","j","m","k"], ...]}
 # labels = the FN argument names of the .map
 ```
+
+**Always fill in `chains`** — one entry per colour ordering the matrix
+element sums over, each a list of parton labels in colour order. It is
+what enables the soft-eikonal check: every soft leg of every antenna
+emits an eikonal on a definite dipole, and that dipole must be
+colour-connected in some chain. A dipole in no chain is a singularity
+the ME does not have, so nothing can cancel it — and the ledger is
+otherwise blind to it, because the term's structure, flavours, clusters
+and pairing can all be perfectly consistent while the antenna sits on
+the wrong pair of legs. Verified on the reference `C1g0ZepemS`: the
+correct term reports 0 errors, and the same term with the two X40 pair
+slots swapped reports 4, naming the offending lines and dipoles. Without
+`chains` the ledger says UNCHECKED rather than passing silently.
 
 **Keep the spec next to the term as `<TERM>.spec.json`.** With that
 name, `regen_rebuild.sh` (autogen-subtraction) runs the ledger itself
@@ -815,6 +842,34 @@ identically). When the antenna is symmetric in the absorbed slots
 (`E30FF(a,b,c) = E30FF(a,c,b)`) the absorption is a genuinely free
 mapping convention: it moves subleading terms only, and a residual that
 survives it lives somewhere else.
+
+**But "free" holds only for a line that stands alone.** The moment a
+line has to CANCEL a specific half of an X40, its absorption is fixed,
+not free — and the two cases look identical in the `.map`:
+
+- an `S,a` line, or any R-level (`*SNLO`) line: the absorption is a
+  convention, both choices reproduce the collinear limit, sweep it or
+  ignore it;
+- an `S,b2` iterated line: the absorption is DETERMINED. The second
+  antenna must reproduce the CLUSTER of the X40 half it is pairing
+  against, because that is what has to cancel. Read the half's cluster
+  off the datasheet (`antenna_datasheet.py show`, the `cluster :` lines)
+  and collapse it in the limit concerned: for `E40b(A,D,C,B)` with
+  quark cluster `[A,D,C]`, the `A∥D` limit leaves radiator `[A,D]`
+  absorbing `C`, so the counterterm is `X30([A,D], C, ...)` — absorbing
+  `C`, not the other pair member.
+
+Empirical signature of getting it wrong, and the reason it is easy to
+misread as a coefficient error: the term is **exact on one colour
+dipole and broken on its mirror**. One half of the gluon-unresolved
+modes read `1.000000` with zero outliers while the other half sit at
+0.3–0.9 with a wide spread — a pattern no coefficient change can
+produce, because a coefficient acts on both dipoles at once. A useful
+cross-check before rebuilding: the reference R-level `.map` you copied
+the reduced NLO subtraction from may itself use the non-neighbour
+absorption (`C0g0ZepemSNLO` does, legitimately — it stands alone), so
+transcribing it into an iterated line imports a choice that was free
+there and is not free here.
 
 ### A sweep's negative result is only as strong as its space
 

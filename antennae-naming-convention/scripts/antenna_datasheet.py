@@ -861,8 +861,8 @@ def operative_block(token, e, data):
         out.append(f"  UNSUPPORTED: {' · '.join(ps(p) for p in unsup)} — "
                    f"in the pole graph but not representable by the "
                    f"clusters above; needs a counterterm")
-        alts = [s for s in om.get("splits", []) or
-                m.get("splits", []) or []]
+        alts = [s for s, v in (m.get("splits") or {}).items()
+                if isinstance(v, dict) and v.get("holds")]
         if len(alts) > 1:
             out.append(f"  note      : several identities hold "
                        f"({'; '.join(alts)}) — the halves' VALUES agree, "

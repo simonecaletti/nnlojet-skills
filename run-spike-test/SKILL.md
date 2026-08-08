@@ -254,6 +254,56 @@ evidence about your term.
 The pass criterion for such modes is the median tending to 1 across the
 scan, not zero outliers.
 
+### Settle it by the nazim ladder, not by argument
+
+There is a cheap, decisive test that does not need a reference term.
+An antenna is spin-averaged, so a gluon-parent cluster only agrees with
+the matrix element AFTER azimuthal averaging; the harness averages over
+`nazim` orientations (gen_spike_test.py, write-spike-test), which kills
+harmonics up to `cos((nazim-1)phi)` and no further. Regenerate the
+check program at `nazim` = 4, 8, 16 and watch the SAME mode:
+
+- outliers shrink monotonically and the median tightens onto
+  `1.000000` → it is the average, the term is fine. Measured on
+  `C1g0ZepemS` mode "4 soft + 5||6": **40% / 18% / 10%** outliers at
+  nazim 4 / 8 / 16.
+- outliers stay put, or the median sits off 1 by a stable amount → it
+  is the term. Go to the mode→block diagnosis below.
+
+Do this BEFORE block bisection: it costs three regenerations of the
+check program and no `.map` edits, and it separates the two causes that
+otherwise look identical.
+
+Two harness faults produce the same signature and are worth excluding
+first, because both are silent:
+
+- **the cluster is only partly rotated.** Rotating two legs of a
+  triple-collinear cluster averages nothing at all. Fixed in
+  gen_spike_test.py; if you are running a hand-written check program,
+  verify it calls the rotation on every leg of the cluster. Measured
+  cost of getting this wrong: two tc modes at ~50% outliers that read
+  `1.000000` with zero outliers once corrected.
+- **the x scan is below double precision.** Collinear modes set a
+  cluster mass `em = sqrts*x`, so they probe `s_ij/s ~ x**2`; x=1e-8
+  means 1e-16. A genuine mode that is exact at the shallow x and drifts
+  to ~0.6-0.8 only at the deepest one is roundoff, not physics.
+
+### Reference baseline (epemjj, validated terms)
+
+What a CORRECT term looks like on this harness, so "many outliers" has
+a scale. Reference `B2g0ZepemjjS` / `C0g0ZepemjjS`, 300 pts/mode, the
+repo's own 2-point-average `check4to2`:
+
+| mode class | outliers | median |
+|---|---|---|
+| no angular correlation (quark parent, most ss/ds/sc/dc) | 0% | 1.000000 |
+| gluon-parent, averaged | 45–50% | 1.000–1.002 |
+| gluon-parent, NOT averaged by that program | 65–95% | 0.93–1.06 |
+
+So a genuine mode of YOUR term at ~40% outliers with median 1.0000 is
+already better behaved than the validated reference. Report it as a
+pass with the spread quoted, not as a failure.
+
 ## Mode → block diagnosis (when a genuine mode fails)
 
 Deciding WHICH block of the subtraction is responsible is a procedure,

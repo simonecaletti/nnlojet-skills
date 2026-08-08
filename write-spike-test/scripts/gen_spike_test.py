@@ -34,10 +34,33 @@ Spec fields:
                  arguments in me and sub
   test_use_lines / test_decl_lines : optional, for the test()/tests()
                  functions (default: same modules as the main program)
-  xs_soft      : x values for soft-driven modes  (default 1e-7..1e-9)
-  xs_coll      : x values for collinear modes    (default 1e-7..1e-9)
+  xs_soft      : x values for soft-driven modes  (default 1e-5..1e-7)
+  xs_coll      : x values for collinear modes    (default 1e-4..1e-6)
                  — the pass criterion is a plateau at 1 ACROSS the
-                 scan, not one deep evaluation (run-spike-test)
+                 scan, not one deep evaluation (run-spike-test).
+                 The emitted calls set a cluster MASS em = sqrts*x, so a
+                 collinear mode probes s_ij/s ~ x**2: the defaults stay
+                 above the double-precision floor, and a deeper override
+                 is warned about rather than silently producing roundoff
+                 that reads exactly like a missing counterterm.
+  nazim        : orientations in the azimuthal average of a gluon-parent
+                 cluster (default 4; 2 is NOT enough — see below)
+
+Azimuthal averaging.  An antenna is spin-averaged, so it reproduces a
+gluon-parent collinear limit only after averaging over the cluster's
+azimuth.  Two things matter and both were wrong in the first version of
+this generator:
+  * the WHOLE cluster must rotate about its parent axis.  Rotating two
+    legs of a triple-collinear cluster averages nothing: on epem
+    C1g0ZepemS the tc modes 3||4||7 and 4||5||6 sat at ~50% outliers
+    with the 2-leg rotation and went to 1.000000 with ZERO outliers once
+    all three legs moved together.
+  * `nazim` orientations kill harmonics up to cos((nazim-1)phi).  4 is
+    enough for single- and triple-collinear clusters (exact above), but
+    soft+collinear modes carry higher harmonics: same term, mode
+    "4 soft + 5||6" measured 40% / 18% / 10% outliers at nazim = 4 / 8 /
+    16, median -> 1.000000.  A residual that SHRINKS as nazim grows is
+    the average, not the subtraction term; one that does not is real.
 
 Build with the makefile pattern in the write-spike-test skill
 (-ffixed-line-length-none is assumed).
@@ -71,9 +94,12 @@ def enumerate_modes(fs, fams):
                             tuple(sorted(fsset - {i, j})), None, None))
         elif fam == "tc":
             for i, j, k in itertools.combinations(idx, 3):
+                # azimuthal average of a gluon-parent cluster must rotate
+                # the WHOLE cluster about the parent direction; rotating
+                # only the first two legs leaves the correlation in.
                 out.append((fam, f"{i}||{j}||{k}", (i, j, k),
                             tuple(sorted(fsset - {i, j, k})),
-                            (i, j) if cluster_parent(
+                            (i, j, k) if cluster_parent(
                                 [fs[i], fs[j], fs[k]]) == "g" else None,
                             None))
         elif fam == "sc":
@@ -143,6 +169,41 @@ def fmt_x(x):
     return f"{x:.1e}".replace("e", "d")
 
 
+#: Below this invariant ratio a double-precision evaluation of the ME is
+#: dominated by roundoff, so the spike ratio stops measuring the physics.
+#: Calibrated on epem C1g0ZepemS (5 partons, 250 pts/mode): s_ij/s = 1e-14
+#: still gives median 0.999997 with ZERO outliers on the g->qqbar
+#: collinear modes, while 1e-16 gives 13/100 outliers and 1e-18 collapses
+#: the median to 0.65.  So the floor sits between 1e-14 and 1e-16.
+PRECISION_FLOOR = 1e-15
+
+
+def warn_precision(xs_soft, xs_coll, fams):
+    """Refuse to let a scan silently run past double precision.
+
+    Collinear-driven families set em = sqrts*x, so the invariant ratio is
+    x**2.  A scan whose deepest point is below ~1e-13 produces ratios that
+    drift away from 1 for numerical reasons only — and the failure is
+    indistinguishable by eye from a missing counterterm, so it burns a
+    debugging cycle every time.
+    """
+    for fam, xs in (("xs_coll (sco/tc/dc)", xs_coll),
+                    ("xs_soft, sc's collinear leg", xs_soft)):
+        if fam.startswith("xs_soft") and "sc" not in fams:
+            continue            # only sc uses xs_soft for a collinear leg
+        deep = [xv for xv in xs if xv ** 2 < PRECISION_FLOOR]
+        if not deep:
+            continue
+        print(f"WARNING: {fam}: x="
+              + ", ".join(f"{xv:.0e}" for xv in deep)
+              + f" probe s_ij/s down to {min(deep) ** 2:.0e}, below the "
+              f"{PRECISION_FLOOR:.0e} double-precision floor — ratios "
+              f"there are roundoff, not physics. A genuine mode that is "
+              f"exact at the shallow x and drifts to ~0.6-0.8 only at "
+              f"the deep one is this, not a missing counterterm.",
+              file=sys.stderr)
+
+
 def generate(spec):
     fs = {int(k): v for k, v in spec["fs_partons"].items()}
     npar = spec["npar"]
@@ -157,8 +218,20 @@ def generate(spec):
     # object is a PLATEAU at 1 across the scan, and instabilities at
     # the deepest x are expected and reportable, not silently
     # droppable). Override per family with xs_soft / xs_coll.
-    xs_soft = spec.get("xs_soft", [1e-7, 1e-8, 1e-9])
-    xs_coll = spec.get("xs_coll", [1e-7, 1e-8, 1e-9])
+    # `sc` sets its COLLINEAR leg from xs_soft (em2 = sqrts*x), so the
+    # soft default has to respect the same floor as xs_coll; ss/ds alone
+    # would tolerate 1e-9 (their scale is linear in x, not quadratic).
+    xs_soft = spec.get("xs_soft", [1e-5, 1e-6, 1e-7])
+    # COLLINEAR default is NOT the same as the soft one.  The generated
+    # calls set the cluster mass as em = sqrts*x, so the invariant ratio
+    # probed is s_ij/s ~ x**2: x=1e-8 already means 1e-16, i.e. machine
+    # epsilon, and the ratio degrades for pure roundoff while looking
+    # exactly like a subtraction error (a genuine mode drifting to 0.6-0.8
+    # only at the deepest x, exact at the shallowest).  Note this differs
+    # from the hand-written legacy check programs, which use
+    # em = sqrts*sqrt(x) and therefore probe s_ij/s ~ x.
+    xs_coll = spec.get("xs_coll", [1e-4, 1e-5, 1e-6])
+    warn_precision(xs_soft, xs_coll, fams)
     chans = spec["channels"]
     prog = f"check{nfs}to{spec['nborn']}" + \
         ("loop" if contrib == "RV" else "")
@@ -179,6 +252,10 @@ def generate(spec):
     L.append(f"      parameter (nmodes={len(modes)})")
     L.append("      dimension x(3)")
     L.append("      dimension vrat(100000)")
+    L.append("      dimension mrot1(4), mrot2(4)")
+    L.append(f"      parameter (nazim={spec.get('nazim', 4)})")
+    L.append("      parameter (pi=3.141592653589793238d0)")
+    L.append("      parameter (dazim=2d0*pi/dble(nazim))")
     L.append("      character*64 stitle")
     L.append("      character*32 arg")
     L.extend("      " + ln for ln in spec.get("decl_lines", []))
@@ -229,10 +306,8 @@ def generate(spec):
     L.append("")
     L.append("      do mode=modelo,modehi")
     L.append("c       -- mode metadata (title, x set, rotations) --")
-    L.append("        mroti=0")
-    L.append("        mrotj=0")
-    L.append("        mrt2i=0")
-    L.append("        mrt2j=0")
+    L.append("        nrot1=0")
+    L.append("        nrot2=0")
     L.append("        select case(mode)")
     for m, (fam, name, u, sp, rot1, rot2) in enumerate(modes, 1):
         c = cls[(fam, name)]
@@ -244,12 +319,12 @@ def generate(spec):
         L.append(f"c         {c['reason']}")
         for k, xv in enumerate(xset, 1):
             L.append(f"          x({k})={fmt_x(xv)}")
-        if rot1:
-            L.append(f"          mroti={rot1[0]}")
-            L.append(f"          mrotj={rot1[1]}")
-        if rot2:
-            L.append(f"          mrt2i={rot2[0]}")
-            L.append(f"          mrt2j={rot2[1]}")
+        for nr, rot in ((1, rot1), (2, rot2)):
+            if not rot:
+                continue
+            L.append(f"          nrot{nr}={len(rot)}")
+            for p, leg in enumerate(rot, 1):
+                L.append(f"          mrot{nr}({p})={leg}")
     L.append("        end select")
     L.append("        write(*,*)")
     L.append("        write(*,'(a,i3,2a)') 'mode ', mode, ': ', stitle")
@@ -271,18 +346,28 @@ def generate(spec):
     L.append("            if (ipass.ne.1) cycle")
     L.append("            wt1=test(itype)")
     L.append("            wt2=tests(itype)")
-    L.append("c           azimuthal average (pi/2 rotation about the")
-    L.append("c           collinear axis) for gluon-parent clusters")
-    L.append("            if (mroti.ne.0) then")
-    L.append(f"              call rotp{npar}(mroti,mrotj)")
-    L.append("              wt1=0.5d0*(wt1+test(itype))")
-    L.append("              wt2=0.5d0*(wt2+tests(itype))")
-    L.append("            end if")
-    L.append("            if (mrt2i.ne.0) then")
-    L.append(f"              call rotp{npar}(mrt2i,mrt2j)")
-    L.append("              wt1=0.5d0*(wt1+test(itype))")
-    L.append("              wt2=0.5d0*(wt2+tests(itype))")
-    L.append("            end if")
+    L.append("c           azimuthal average for gluon-parent clusters:")
+    L.append("c           4 orientations (0, pi/2, pi, 3pi/2) about the")
+    L.append("c           CLUSTER axis, rotating every leg of the cluster.")
+    L.append("c           A 2-point average kills cos(2phi) only; the")
+    L.append("c           triple-collinear splitting functions carry")
+    L.append("c           higher harmonics, and rotating a subset of the")
+    L.append("c           cluster does not average anything at all.")
+    L.append("c           The 4th call restores the original orientation,")
+    L.append("c           so cluster 2's average starts from the same point.")
+    for nr in (1, 2):
+        L.append(f"            if (nrot{nr}.gt.0) then")
+        L.append("              s1=wt1")
+        L.append("              s2=wt2")
+        L.append(f"              do irot=1,nazim-1")
+        L.append(f"                call rotcl{npar}(mrot{nr},nrot{nr},dazim)")
+        L.append("                s1=s1+test(itype)")
+        L.append("                s2=s2+tests(itype)")
+        L.append("              end do")
+        L.append(f"              call rotcl{npar}(mrot{nr},nrot{nr},dazim)")
+        L.append("              wt1=s1/dble(nazim)")
+        L.append("              wt2=s2/dble(nazim)")
+        L.append("            end if")
     L.append("            if (wt1.ne.wt1 .or. wt2.ne.wt2) then")
     L.append("              nnan=nnan+1")
     L.append("              cycle")
@@ -347,6 +432,54 @@ def generate(spec):
         L.append("      return")
         L.append("      end")
 
+    L.append(f"""
+************************************************************************
+*     rotate the n momenta listed in idx by pi/2 about their COMMON
+*     axis (the cluster's parent direction).  librambo's rotp{npar} does
+*     this for exactly two legs; a collinear cluster of three needs all
+*     three moved together or the azimuthal average is not an average.
+************************************************************************
+      subroutine rotcl{npar}(idx,n,theta)
+      use KinData_mod
+      implicit real*8(a-h,o-z)
+      dimension idx(n), ax(3), pd(3,{npar})
+      ct=cos(theta)
+      st=sin(theta)
+      omct=1d0-ct
+      ax(1)=0d0
+      ax(2)=0d0
+      ax(3)=0d0
+      do m=1,n
+        do ii=1,3
+          ax(ii)=ax(ii)+p{npar}(ii,idx(m))
+        end do
+      end do
+      aa=sqrt(ax(1)**2+ax(2)**2+ax(3)**2)
+      if (aa.le.0d0) return
+      ux=ax(1)/aa
+      uy=ax(2)/aa
+      uz=ax(3)/aa
+      do m=1,n
+        j=idx(m)
+        pd(1,m)=(ct+ux*ux*omct)*p{npar}(1,j)
+     .         +(ux*uy*omct-uz*st)*p{npar}(2,j)
+     .         +(ux*uz*omct+uy*st)*p{npar}(3,j)
+        pd(2,m)=(ux*uy*omct+uz*st)*p{npar}(1,j)
+     .         +(ct+uy*uy*omct)*p{npar}(2,j)
+     .         +(uy*uz*omct-ux*st)*p{npar}(3,j)
+        pd(3,m)=(ux*uz*omct-uy*st)*p{npar}(1,j)
+     .         +(uy*uz*omct+ux*st)*p{npar}(2,j)
+     .         +(ct+uz*uz*omct)*p{npar}(3,j)
+      end do
+      do m=1,n
+        j=idx(m)
+        do ii=1,3
+          p{npar}(ii,j)=pd(ii,m)
+        end do
+      end do
+      call fillS_kin({npar})
+      return
+      end""")
     L.append("""
 ************************************************************************
 *     median of v(1:n) (insertion sort on a copy)

@@ -32,6 +32,27 @@ in seconds, with no build:
      negative iterated (X30 x X30) line singular in the same
      invariant; orphaned iterated lines and sign-rule violations are
      reported.
+  6. SOFT DIPOLES  every soft leg of every antenna emits an eikonal on
+     a definite dipole; that dipole must be a COLOUR-CONNECTED pair of
+     one of the declared chains.  A dipole present in no chain is a
+     singularity the matrix element does not have, so no counterterm
+     anywhere can cancel it -- the term is wrong however the rest of
+     the bookkeeping looks.  This is the check that catches a wrong
+     X40 SLOT ASSIGNMENT, which is otherwise invisible until the
+     spike test: the empirical signature is the single-soft mode
+     sitting at a stable fraction (0.3-0.9, wide spread) while every
+     collinear mode reads 1.000000, and it costs a build cycle per
+     hypothesis to localise.  Requires "chains" in the spec; without
+     it the check is reported UNCHECKED, never silently skipped.
+     Legs that are mapped momenta are skipped (the reduced chain is
+     not tracked) and listed in the info block.
+
+     The dipole is taken from the datasheet when recorded and
+     otherwise DERIVED as "the soft leg's two collinear partners in
+     the antenna's own pole graph" -- s(A,S) and s(S,B) singular =>
+     eikonal on (A,B).  The selftest asserts that derivation against
+     every dipole the datasheet does record, which is what licenses
+     using it for the X40 entries whose dipole field is still empty.
 
 Usage:
   pole_ledger.py TERM.map --spec spec.json [--datasheet FILE]
@@ -40,9 +61,17 @@ Usage:
 
 spec.json:
   { "flavours": {"l":"qb1","k":"g","i":"q2","j":"qb2","m":"q1"},
-    "born": [["q1","qb1","g"]] }
+    "born": [["q1","qb1","g"]],
+    "chains": [["l","m","i","j","k"], ["l","i","j","m","k"]] }
   Momentum labels are the FN argument names of the .map (letters or
   numbers); args of FN not in "flavours" are non-partons (leptons).
+  "chains" is OPTIONAL but strongly recommended: one entry per colour
+  ordering the matrix element sums over, each a list of parton labels
+  in colour order.  For a colour-summed ME list them all -- the check
+  accepts a dipole adjacent in ANY declared chain, so a missing chain
+  produces false errors and a spurious one hides real ones.  For a
+  4-quark ME remember that BOTH readings of the colour structure are
+  chains (the pair that plays "secondary" swaps between them).
 
 Exit status: 1 if any ERROR, else 0.  Warnings and unverified modes do
 not fail the check.
@@ -349,6 +378,82 @@ class LineCheck:
                 ok = False
         return ok
 
+    # -- soft eikonal dipoles vs the colour chain --
+
+    def soft_dipoles(self):
+        """[(token, soft_arg, (legA, legB), how)] for every soft leg of
+        every antenna on this line, expressed in .map arguments.
+
+        The dipole is read from the datasheet when it is recorded, and
+        otherwise DERIVED: a soft gluon's eikonal sits on the dipole
+        formed by its two COLLINEAR partners in the antenna's own pole
+        graph (s(A,S) and s(S,B) singular => eikonal on (A,B)).  That
+        derivation reproduces every dipole the datasheet does record
+        (asserted in the selftest), which is what makes it usable for
+        the X40 entries whose dipole field is still empty.
+        """
+        out = []
+        for token, args, entry in self.antennae:
+            meas = entry.get("measured") or {}
+            sco = set()
+            for k in (meas.get("sco") or {}):
+                try:
+                    p, q = (int(t) for t in k.split(","))
+                except ValueError:
+                    continue
+                sco.add(frozenset((p, q)))
+            for b, d in sorted((meas.get("ss") or {}).items()):
+                try:
+                    ib = int(b)
+                except ValueError:
+                    continue
+                rec = [k for k in (d.get("dipoles") or {})]
+                if rec:
+                    for k in rec:
+                        try:
+                            p, q = (int(t) for t in k.split(","))
+                        except ValueError:
+                            continue
+                        out.append((token, args[ib - 1],
+                                    (args[p - 1], args[q - 1]),
+                                    "datasheet"))
+                    continue
+                partners = sorted(next(iter(pr - {ib})) for pr in sco
+                                  if ib in pr)
+                if len(partners) != 2:
+                    continue        # not a plain eikonal: leave alone
+                out.append((token, args[ib - 1],
+                            (args[partners[0] - 1], args[partners[1] - 1]),
+                            "derived"))
+        return out
+
+    def check_soft_dipoles(self, adjacency, unchecked):
+        """Every soft-gluon eikonal a line emits must sit on a dipole the
+        matrix element actually has, i.e. a colour-connected pair of one
+        of the declared chains.  A dipole that exists in no chain is a
+        singularity nothing can cancel: the classic symptom is the
+        single-soft mode reading a stable fraction (~0.4) while every
+        collinear mode is exact.
+
+        Legs that are mapped momenta are skipped (the reduced chain is
+        not tracked here) and counted in `unchecked`.
+        """
+        for token, soft, (a, b) in ((t, s, d)
+                                    for t, s, d, _ in self.soft_dipoles()):
+            legs = [norm(a), norm(b)]
+            if any(not isinstance(x, str) or x not in self.flavours
+                   for x in legs + [norm(soft)]):
+                unchecked.append((self.aN, token))
+                continue
+            if frozenset(legs) not in adjacency:
+                self.err(
+                    f"{token}: soft {show(norm(soft))} puts its eikonal on "
+                    f"the dipole ({show(legs[0])},{show(legs[1])}), which "
+                    f"is NOT colour-connected in any declared chain — the "
+                    f"matrix element has no such singularity, so nothing "
+                    f"can cancel it. Check the antenna's slot assignment "
+                    f"(permute the ARGUMENTS, never wrap the function).")
+
     # -- flavour / species --
 
     def check_species(self):
@@ -467,6 +572,30 @@ def run_ledger(mapfile, spec, sheet, modes, verbose=False, out=print):
         lc.check_species()
         lc.check_split()
         lines.append(lc)
+
+    # soft-eikonal dipoles against the declared colour chain(s)
+    chains = spec.get("chains")
+    if chains:
+        bad = [c for c in chains
+               if any(leg not in flavours for leg in c)]
+        if bad:
+            raise ValueError(f"spec chains contain non-parton legs: {bad}")
+        adjacency = {frozenset(p) for c in chains
+                     for p in zip(c, c[1:])}
+        unchecked = []
+        for lc in lines:
+            lc.check_soft_dipoles(adjacency, unchecked)
+        if unchecked:
+            rep["info"].append(
+                "soft-dipole check skipped on mapped momenta: "
+                + ", ".join(f"a{n}:{t}" for n, t in unchecked))
+    else:
+        rep["info"].append(
+            "no 'chains' in spec -> soft-eikonal dipoles UNCHECKED. Add "
+            "\"chains\": [[...], ...] (colour orderings as lists of FN "
+            "argument names; list every ordering the ME sums over) to "
+            "enable the check that catches a soft eikonal sitting on a "
+            "dipole the matrix element does not have.")
 
     # sign rule (rung 0): single-antenna lines +, iterated lines -
     for lc in lines:
@@ -827,6 +956,54 @@ def selftest():
                for e in rep["errors"]), rep["errors"]
     assert not any("mismatch" in e for e in rep["errors"])
     assert not any("mode" in e for e in rep["errors"])
+
+    # (1b) soft-eikonal dipoles vs the declared chain.  ZZ30's soft leg
+    # is slot 2, whose collinear partners are slots 1,3 -> dipole on the
+    # outer legs; on the chain p-g1-g2-q that is (p,g2) for ZZ30(p,g1,g2)
+    # and (p,g1) for ZZ30(p,g2,g1): both colour-connected? (p,g1) is,
+    # (p,g2) is not -- so the chain check is genuinely discriminating.
+    cspec = dict(spec, chains=[["p", "g1", "g2", "q"]])
+    rep = run_ledger(write_map(good), cspec, sheet, modes)
+    assert any("eikonal on the dipole (p,g2)" in e
+               for e in rep["errors"]), rep["errors"]
+    assert not any("eikonal on the dipole (p,g1)" in e
+                   for e in rep["errors"]), rep["errors"]
+    # both orderings declared -> both dipoles legal, no eikonal error
+    cspec2 = dict(spec, chains=[["p", "g1", "g2", "q"],
+                                ["p", "g2", "g1", "q"]])
+    rep = run_ledger(write_map(good), cspec2, sheet, modes)
+    assert not any("eikonal" in e for e in rep["errors"]), rep["errors"]
+    # without chains the check is announced as skipped, never silent
+    rep = run_ledger(write_map(good), spec, sheet, modes)
+    assert any("UNCHECKED" in i for i in rep["info"]), rep["info"]
+
+    # (1c) the DERIVED dipole rule must reproduce every dipole the real
+    # datasheet records, otherwise deriving it for the X40s is unsound.
+    try:
+        real = json.load(open(DEFAULT_DATASHEET))
+    except OSError:                       # asset absent: skip, not fail
+        real = {}
+    nchecked = 0
+    for tok, e in real.items():
+        meas = e.get("measured") or {}
+        sco = set()
+        for k in (meas.get("sco") or {}):
+            try:
+                a, b = (int(t) for t in k.split(","))
+            except ValueError:
+                continue
+            sco.add(frozenset((a, b)))
+        for b, d in (meas.get("ss") or {}).items():
+            for k in (d.get("dipoles") or {}):
+                want = frozenset(int(t) for t in k.split(","))
+                ib = int(b)
+                got = frozenset(next(iter(pr - {ib})) for pr in sco
+                                if ib in pr)
+                assert got == want, (tok, b, sorted(got), sorted(want))
+                nchecked += 1
+    if nchecked:
+        print(f"  derived-dipole rule agrees with {nchecked} recorded "
+              f"datasheet dipole(s)")
 
     # (2) structural typo: stale cluster in the second antenna
     bad = good.replace("*ZZ30([p,g1],[g1,g2],q)",
