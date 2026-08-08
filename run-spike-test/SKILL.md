@@ -3,9 +3,10 @@ name: run-spike-test
 description: >
   Build, run, and interpret NNLOJET spike tests (test/process/<PROC>/check*.f)
   that validate antenna-subtraction terms against the full matrix element in
-  infrared limits — including diagnosing WHICH block of a failing term is
-  responsible (mode→block shortlist, ratio-character reading, block
-  bisection). Use whenever the user asks to spike-test a channel, check
+  infrared limits — including diagnosing WHICH block or WHICH .map line of
+  a failing term is responsible (per-line weight attribution, mode→block
+  shortlist, ratio-character reading, block bisection) and reporting the
+  per-limit result table in chat. Use whenever the user asks to spike-test a channel, check
   a subtraction term, verify infrared cancellation, or after a subtraction
   term was edited/registered (write-subtraction / autogen-subtraction
   skills). Runs with iplot=2 only; iplot=1 plot production is user-driven.
@@ -19,6 +20,25 @@ approaches 1 asymptotically as the infrared parameter x decreases
 (x(1) > x(2) > x(3)), for many points in the phase space, for every
 GENUINE limit of the channel** — the mode lists also probe
 configurations that are not limits at all (see classification below).
+
+Cheap lookups first (full ladder in write-subtraction): name lookups
+(me-/antennae-naming-convention) → static scans (`genuine_modes.py`,
+`antenna_slots.py`, precedent grep) → one-run measurements (per-line
+attribution below, pole scan, dipole fit) → residue fits → build
+cycles (block composer + autogen-subtraction's wrapper). This skill
+owns the one-run rung: it is the reader of the per-line `WTDBG` dump.
+
+## The x scan: plateau, not depth
+
+Typical working range: `1e-7`, `1e-8`, ... down to `1e-10`. Deeper can
+work but is not automatically better. **The object of the exercise is
+a PLATEAU at 1 across the scan, not a single deep evaluation**: a
+ratio is validated when it is stable at 1 over consecutive x values,
+never because one x happens to land on 1. Numerical instabilities at
+the deepest cutoffs are expected and are NOT a failure, provided the
+plateau is established at the shallower values — but when that
+happens, REPORT IT EXPLICITLY, naming the x at which instability sets
+in; do not quietly drop that x or present the plateau alone.
 
 ## Locate the test
 
@@ -188,6 +208,24 @@ C1g0/Ct1g0/B3g0 — 240/240 with the rule below.)
    (epem: Ct1g0 next to C1g0). Artefacts common to both are
    harness/kinematics, not your term.
 
+## Always report the limit table in chat
+
+The documented default output of a spike-test run on a new or edited
+term is a summary table **printed in the chat**, not only left in a
+log. One row per GENUINE limit — including the ones that pass, so
+coverage and failures are visible in one place — ordered by limit
+family (single soft, single collinear, double soft, triple collinear,
+soft-collinear, double collinear):
+
+| mode | limit | ratio at each x | verdict |
+|---|---|---|---|
+| 12 | 5 soft | 1.0002 / 1.0000 / 1.0000 | pass |
+
+Dead modes are summarised in ONE line ("N dead modes, behaviour as
+expected"), not enumerated. State the point count and the x values
+used; if the deepest x went unstable, say so in the affected rows
+(plateau rule above).
+
 ## Mode → block diagnosis (when a genuine mode fails)
 
 Deciding WHICH block of the subtraction is responsible is a procedure,
@@ -208,14 +246,33 @@ not an improvisation:
    - median near 1 with heavy tails → a mapping mismatch between a
      block and its counterterm (they cancel in the strict limit but
      not at finite x).
-3. **Bisect over blocks** — the standard method, not a last resort.
-   Compose the term from block subsets (write-subtraction's
-   `map_blocks.py`), regenerate+rebuild in one command
-   (autogen-subtraction's wrapper), rerun the failing mode only
-   (`./check ITYPE MODELO MODEHI` where the CLI supports it). Each
-   hypothesis is then one short test; in practice this is the
-   difference between testing two hypotheses and testing eight.
-4. Remember the harness caveats: on DEAD modes rat→0 or noise is
+3. **Per-line attribution — run this BEFORE block bisection.** One run
+   with the per-line weight dump tells you which `.map` lines are
+   active in the failing mode and which one scales anomalously:
+
+   ```bash
+   # once: regenerate the term's auto*.f with the dump compiled in
+   #       (maple makefort<RR|RV> -Diprocess=<N> -Dwtdebug=1 — opt-in,
+   #        byte-identical output without the flag; autogen-subtraction)
+   NNLOJET_WTDEBUG=1 OMP_NUM_THREADS=1 ./check4to2 <CH> <MODE> <MODE> 200 1 > run.out
+   python .claude/skills/run-spike-test/scripts/wt_attribute.py \
+       --map <TERM>.map --fn <FNNAME> --x 1e-7 1e-8 1e-9 --log run.out
+   ```
+
+   It prints, per `.map` line (matched by `aN` order — labels are
+   gap-free by construction): pass rate, median |wt| per x, the fitted
+   scaling exponent, magnitude relative to the largest line, and the
+   source term. Lines at the mode's family-maximum exponent are the
+   active ones; an anomalous exponent or magnitude names the suspect
+   directly. Attribution costs ONE run; bisection costs a
+   regenerate+rebuild+run per hypothesis.
+4. **Bisect over blocks** — the fallback for what attribution cannot
+   answer (e.g. whether a whole block should exist at all). Compose
+   the term from block subsets (write-subtraction's `map_blocks.py`),
+   regenerate+rebuild in one command (autogen-subtraction's wrapper),
+   rerun the failing mode only (`./check ITYPE MODELO MODEHI` where
+   the CLI supports it).
+5. Remember the harness caveats: on DEAD modes rat→0 or noise is
    normal; a sub-singular mode reading 1.0000 is a false pass (see
    classification above); a control channel with an untouched `.map`
    separates harness artefacts from your term.
