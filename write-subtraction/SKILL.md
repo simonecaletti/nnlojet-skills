@@ -464,6 +464,31 @@ The line list is DERIVED from the full ME, not invented:
      and the failing ratio ME/subtraction sits ABOVE 1 and grows as x
      decreases (under-subtraction).
 
+   **An S,a block can pass its own single-unresolved mode and still be
+   the WRONG decomposition.** Any antenna with the correct `1/s_ij × P`
+   residue reproduces a collinear limit, so a pair-collinear mode reads
+   `1.000000` for several inequivalent emitter assignments. What
+   distinguishes them is which reduced-ME ORDERING each line multiplies
+   — invisible in the single-unresolved test, and fatal downstream:
+   nothing in S,b1/S,b2 will pair with a wrong emitter, and the symptom
+   surfaces two blocks later as an uncancellable pole. Settle the
+   emitter by MEASUREMENT before building on it: a collinear dipole fit
+   (probe-me-ir-structure mode 1, basis = `antenna × reduced ME`
+   UN-divided — the reduced MEs are what lift the degeneracy). A soft
+   dipole fit does NOT answer this question; it constrains only the
+   gluon-emission block.
+
+   **Which parton emits a secondary qq-bar pair.** In a Born chain
+   `q - g - qbar`, a secondary pair comes from the Born GLUON splitting,
+   so the natural S,a antenna is the gluon-gluon type with the Born
+   gluon as radiator (`G30FF(g, qb', q')`), giving ONE line per ordering
+   of the reduced ME at coefficient 1. A quark-radiator (`E30FF`)
+   arrangement can also be made correct, but then the radiators are the
+   two quarks of that Born, again at coefficient 1 with the reduced-ME
+   gluon ordering locked to the radiator. What is NOT correct is
+   averaging over radiators and orderings with 1/2 factors: it
+   reproduces the collinear limit and matches no X40.
+
    **The minimal buildable/testable unit is S,a + S,b1 + S,b2 for one
    flavour sector — never S,a alone.** The X40 carries a spurious
    single-unresolved pole and the iterated X30×X30 counterterm cancels
@@ -550,6 +575,20 @@ for reasons that look like physics errors. The generic procedure
    of a dipole that actually exists in the full matrix element (fit it
    with probe-me-ir-structure). If it lands on a dipole the ME does
    not have, the assignment is wrong — no counterterm can repair it.
+
+**Never write a wrapper to make the cluster rule match your assumed
+leg assignment — permute the ARGUMENTS instead.** If a pole scan says a
+sub-antenna's legs are not in the order you expected, the fix is to
+call it with the arguments permuted so that the GENERIC rule
+(`X40(a,b,c,d) -> [a,b,c],[b,c,d]`) produces the clusters the antenna
+actually has. A wrapper that re-permutes internally gives you the right
+function with the WRONG clusters, and it looks correct because both the
+scan and the composer agree with each other. Worked instance of the
+pairing this produces: the two halves of a `Full` X40 are used as
+`X40a(A,B,C,D)` together with `X40b(A,D,C,B)` — same four legs, the
+second permutation chosen precisely so the generic rule yields the
+half's own clusters. **Both halves appear; using only one is the
+error.**
 
 **Splitting a `Full` composite on all-final clusters** (the companion
 rule): the halves carry different momentum mappings AND cover
@@ -664,11 +703,34 @@ configuration works" from "I did not try the one that does" — and only
 the first of those tells you to stop searching and start measuring
 (probe-me-ir-structure mode 4 for a bare-antenna collinear residue).
 
-**Diagnostic that points at an absorption/ordering axis rather than a
-missing block**: a residual of roughly 1.2–3.4× confined to one or two
-SINGLE-collinear modes, while the double-unresolved modes are exact.
-That is the signature of a cluster order carried over from a different
-colour chain, not of an absent line.
+**Diagnostic that MAY point at an absorption/ordering axis**: a
+residual of roughly 1.2–3.4× confined to one or two SINGLE-collinear
+modes while the double-unresolved modes are exact. Treat it as a
+hypothesis to test, NOT as a conclusion — it is cheap to settle (one
+axis, one sweep) and it is often wrong. Measured counterexample: a term
+showing exactly that signature had 4 of its 8 `E30FF` lines absorbing
+the non-adjacent pair member; flipping every one of them to the colour
+neighbour, with the dependent `S,b2` clusters flipped in step, changed
+the score by NOTHING (all four near/far combinations scored
+identically). When the antenna is symmetric in the absorbed slots
+(`E30FF(a,b,c) = E30FF(a,c,b)`) the absorption is a genuinely free
+mapping convention: it moves subleading terms only, and a residual that
+survives it lives somewhere else.
+
+### A sweep's negative result is only as strong as its space
+
+An exhaustive sweep that finds no working configuration proves the
+answer is not IN the declared space; it says nothing about why. Before
+concluding that two blocks are mutually exclusive because every
+configuration containing both scores worse, ask **which missing X40
+would make them coexist**. Two iterated families that cancel poles of
+DIFFERENT X40 halves look mutually exclusive whenever one of those
+halves is absent from the master — both are then over-subtracting, the
+sweep reports it faithfully, and the conclusion "these two writings are
+the same overlap" is wrong. The per-pole pairing rule above is the
+check: enumerate each family's poles and name the X40 pole each one
+cancels; a family whose partner pole is not present in any block of the
+master is evidence of a missing antenna, not of an incompatible block.
 
 ## Deriving a term by crossing an existing one
 

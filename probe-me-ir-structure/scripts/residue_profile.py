@@ -50,7 +50,14 @@ Spec fields (same conventions as gen_probe.py / antenna_probe.py):
   zref       : hard spectator index used for z (default: first non-pair
                final-state index appearing in limit_call)
   target     : Fortran expression, e.g. "E40bb(3,6,5,4,7)"
-  candidates : [{"label": "...", "expr": "FullA30FF(3,4,5,7)*FullE30FF(3,6,5,7)"}]
+  candidates : [{"label": "...", "expr": "...", "map": "call set_map(...)"}]
+               An iterated counterterm's SECOND antenna is evaluated on the
+               MAPPED momenta of the first, so a candidate may carry its own
+               "map" (a set_map call); the expression may then use the
+               j1..j9 mapped indices. Omitting "map" compares unmapped
+               antennae, which differ from the counterterm at O(1) in a
+               collinear limit even though they agree at leading power in a
+               soft one — a silent source of "flat but irrational" profiles.
   xs_list    : default [1e-6, 1e-7, 1e-8]   (see the cutoff guidance in
                run-spike-test: look for a plateau, expect deep-x noise)
   npt        : points per x (default 400)
@@ -200,14 +207,21 @@ def emit(spec):
     labels = "\n".join(
         f"      clab({k+1}) = '{c.get('label', 'cand%d' % (k+1))[:40]}'"
         for k, c in enumerate(cands))
-    ce = "\n".join(f"          cand({k+1}) = {c['expr']}"
-                   for k, c in enumerate(cands))
+    def one(k, c):
+        pre = ""
+        if c.get("map"):
+            pre = ("          call unset_map()\n"
+                   f"          {c['map']}\n")
+        return pre + f"          cand({k+1}) = {c['expr']}"
+    ce = "\n".join(one(k, c) for k, c in enumerate(cands))
     azim = ""
     if spec.get("azimuthal", True):
         azim = (f"          call rotp{npar}({ci},{cj})\n"
                 f"          tgt = 0.5d0*(tgt + {spec['target']})\n"
                 + "\n".join(
-                    f"          cand({k+1}) = 0.5d0*(cand({k+1}) + {c['expr']})"
+                    (("          call unset_map()\n"
+                      f"          {c['map']}\n") if c.get("map") else "")
+                    + f"          cand({k+1}) = 0.5d0*(cand({k+1}) + {c['expr']})"
                     for k, c in enumerate(cands)))
     cuts = ("          " + spec["cuts_call"]) if spec.get("cuts_call") else ""
     return HDR.format(
@@ -246,6 +260,13 @@ def selftest():
     # azimuthal averaging can be switched off
     g = emit(dict(spec, azimuthal=False))
     assert "rotp7" not in g, "azimuthal average not disabled"
+    # a candidate may carry its own set_map, emitted before its evaluation
+    m = emit(dict(spec, candidates=[
+        {"label": "mapped", "map": "call set_map(7,6, (/3,4,5/), (/2,1,3,5,6,7/), ipass)",
+         "expr": "XA(3,4,5,7)*XB(j3,j4,j5,6)"}]))
+    assert "call unset_map()" in m and "call set_map(7,6" in m
+    assert m.index("call set_map(7,6") < m.index("cand(1) = XA"), \
+        "candidate map emitted after its evaluation"
     # explicit zref honoured
     h = emit(dict(spec, zref=5))
     assert "%s(3,5)" in h and "%s(4,5)" in h

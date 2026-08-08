@@ -233,6 +233,27 @@ expected"), not enumerated. State the point count and the x values
 used; if the deepest x went unstable, say so in the affected rows
 (plateau rule above).
 
+## Calibrate "median ~ 1 with many outliers" before diagnosing it
+
+Some GENUINE modes read median ~1 with a large outlier count even for a
+CORRECT term — typically the triple-collinear and soft-collinear
+families, where subleading terms are large at any reachable x. Measured
+instance: two independent, correct reference terms for the same channel
+both showed 4 such modes (medians 0.998-1.001, ~70/200 outliers) while
+the other 17 were exact with zero outliers.
+
+So: do NOT diagnose a missing block from that pattern alone — and in
+particular do not read it as a missing S,c/large-angle-soft block,
+which is the tempting inference. Calibrate first: run a KNOWN-GOOD term
+of the same process and layer (a sibling channel, or an earlier
+validated version of this one) and compare the outlier counts mode by
+mode. A mode that is noisy for the known-good term is noisy for
+harness reasons; only a mode that is clean there and noisy here is
+evidence about your term.
+
+The pass criterion for such modes is the median tending to 1 across the
+scan, not zero outliers.
+
 ## Mode → block diagnosis (when a genuine mode fails)
 
 Deciding WHICH block of the subtraction is responsible is a procedure,

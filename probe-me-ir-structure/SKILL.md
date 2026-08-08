@@ -190,7 +190,7 @@ Reading the profile — this is the whole point of the mode:
 | flat in z, rational constant | candidate is right; the constant is its coefficient |
 | flat in z, irrational constant | right species, wrong normalisation or a missing partner term |
 | **varies with z** | wrong species, OR the candidate mixes soft and collinear pieces that the target weights differently — the signature that a **sub-antenna split** is needed, not a coefficient |
-| flat but wide per-bin spread | azimuthal terms survive the built-in `rotp` average ⇒ gluon parent and the candidate has the wrong spin structure |
+| flat but wide per-bin spread | the bulk cancels and a TAIL does not. Two causes, distinguish before concluding: (a) gluon parent + wrong spin structure (azimuthal terms survive the built-in `rotp` average); (b) jet-cut acceptance differing between target and candidate, which zeroes one of them on part of the sample — check by re-profiling with `cuts_call` removed. A ~10% spread with a quark parent is (b) far more often than (a) |
 
 The middle two rows are the ones a least-squares fit cannot report at
 all: it returns a number either way. Spec fields mirror the other
