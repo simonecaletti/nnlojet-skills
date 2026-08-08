@@ -66,6 +66,17 @@ maple makefortRR -Diprocess=<N>       # all *S / *SNLO files of the process
 maple makefortRV -Diprocess=<N>       # all *T / *TNLO files
 ```
 
+Optional debug build of the generated Fortran: add `-Dwtdebug=1` to
+either command to compile in a per-line weight dump (one `WTDBG` line
+per `.map` term and evaluation, printing the line index, its `jpass`
+flag and its `wt`). It is **opt-in and a no-op by default** — without
+the flag the generated files are byte-identical — and the dump is
+additionally gated at runtime on the environment variable
+`NNLOJET_WTDEBUG` (unset ⇒ silent), so a debug-generated file only
+prints when asked. Consumer: `wt_attribute.py` in run-spike-test
+(per-line failure attribution). Regenerate WITHOUT the flag before
+committing.
+
 - Output: `src/process/<DIR>/auto<name>.f` (dated header
   `generated using makefortRR on ...`). The generator loops over ALL
   terms of the process, not just the edited one — and the current
