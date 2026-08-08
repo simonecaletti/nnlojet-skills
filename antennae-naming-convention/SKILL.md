@@ -10,9 +10,11 @@ description: >
   the 5||6 collinear limit", "what is J21 / J2^(1)", "what does S,b2 mean",
   "colour-connected vs unconnected", "what cancels the VV poles", or when
   interpreting spike-test failures and layer-check residues. The name
-  grammar fixes an antenna's SPECIES only — slot conventions must be
-  measured (pole scan, probe-me-ir-structure). Read-only reference —
-  modify nothing.
+  grammar fixes an antenna's SPECIES only; slot PLUMBING is audited
+  mechanically (antenna_slots.py — declaration order vs the positional
+  cluster rule, with wrapper recipes) and slot CONVENTIONS are measured
+  (pole scan, probe-me-ir-structure). Read-only reference for the repo —
+  modify nothing there.
 ---
 
 # NNLOJET antenna naming and limit coverage
@@ -34,6 +36,31 @@ CONVENTION, and the two are independent. Most `src/X40/*.f` headers
 state only a paper equation number, and `maple/notation.map` gives the
 token, not the convention — do not infer it from the letter, the
 paper, or a sibling `.map`; measure it.
+
+**Slot plumbing — the cheap first lookup (run BEFORE the pole scan,
+not instead of it).** The maple cluster rule is positional, but the
+Fortran entry points do not all declare their `i1..i9` slots in
+ascending positional order — reversed and fully permuted declarations
+coexist in the tree, and a positional `.map` call against a permuted
+one evaluates the right function with the wrong momentum map,
+silently. Audit mechanically:
+
+```bash
+python .claude/skills/antennae-naming-convention/scripts/antenna_slots.py \
+    --root <repo root> [--name <antenna>]        # --selftest available
+```
+
+It groups every entry point under `src/X30|X31|X40|X30int` by
+slot-declaration order, FLAGS the permuted ones with a ready wrapper
+recipe (a one-line function restoring ascending positional order, plus
+its NNLOJET.mk and notation.map registrations), and cross-checks
+`ant30set`/`ant31set`/`ant40set` against the Fortran in both
+directions (tokens with no entry point; entry points never
+registered). Three different questions, in increasing cost order: the
+NAME fixes the species, THIS SCRIPT fixes the slot plumbing, the POLE
+SCAN fixes the convention. A flag means "check before positional use",
+not "wrong" — some species' canonical chains are legitimately
+non-consecutive; the pole scan decides.
 
 ## The name grammar
 
