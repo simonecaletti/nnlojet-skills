@@ -72,6 +72,40 @@ cd test/process/<PROC>
 make check4to2 -j8
 ```
 
+### Preflight — run this BEFORE every run, and before believing any ratio
+
+```bash
+python .claude/skills/run-spike-test/scripts/preflight.py \
+    test/process/<PROC> <target>
+```
+
+It audits the two things that make a CORRECT term read as broken, both
+silently, and exits non-zero on either:
+
+1. **Stale build chain** — `.map` newer than its `auto*.f` (maple
+   regeneration pending), `auto*.f` or `check*.f` newer than the binary.
+   Never run a binary you did not just build; `make` is cheap, a false
+   diagnosis is not.
+2. **Incomplete azimuthal averaging** — for every genuine mode it
+   computes each collinear cluster's parent by net flavour (from the
+   program's own channel banner) and requires that every **gluon-parent**
+   cluster is rotated over ALL its legs. Quark-parent clusters need no
+   averaging and are not flagged.
+
+Both classes produce the same signature: ~45% outliers with median ~1 on
+precisely the gluon-parent collinear modes — the modes whose failure is
+most physically plausible, which is why it gets believed. Measured
+instance: a `check5to3.f` edited three minutes after its binary was
+linked (the partial-rotation fix on the two `nrot1=3` modes) made a
+correct term read median 0.9988–1.0050 with 332/757 outliers on modes 13
+and 17; rebuilt, the same `.map` gave 0/757 and 1.000000. The preflight
+flags exactly those two modes from the source alone, in under a second.
+
+If the program has no channel banner or no `stitle` metadata (older
+hand-written checks), the rotation audit reports **UNCHECKED** — that is
+not a pass. Verify by hand or regenerate with `gen_spike_test.py`
+(write-spike-test).
+
 Traps:
 - Some older makefiles (DISWp style) share `OBJDIR = $(BASE)/obj` with the
   main build — stale-`.mod` conflicts if the driver was built with other
