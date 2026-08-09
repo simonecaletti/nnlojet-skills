@@ -867,7 +867,7 @@ def operative_block(token, e, data):
             out.append(f"  note      : several identities hold "
                        f"({'; '.join(alts)}) — the halves' VALUES agree, "
                        f"the MAPPINGS do not, so the choice is a mapping "
-                       f"convention: declare it as a map_blocks axis.")
+                       f"convention: declare it as a compose_blocks axis.")
     for lim, r in sorted((e.get("residue") or {}).items()):
         kind, key = (lim.split(":", 1) + [""])[:2]
         where = f"{kind}({_slotmap(key, L)})" if key else lim

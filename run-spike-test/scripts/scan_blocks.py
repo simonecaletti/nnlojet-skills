@@ -2,7 +2,7 @@
 """Unattended sweep over subtraction-term configurations.
 
 Composes a .map from each candidate block set (write-subtraction's
-map_blocks.py), regenerates + rebuilds, runs the spike test, scores the
+compose_blocks.py), regenerates + rebuilds, runs the spike test, scores the
 GENUINE modes, and prints a ranked table. Turns "is this block set
 better?" from a manual regenerate-build-run-read cycle into one command.
 
@@ -16,7 +16,7 @@ conclusion than "I tried some things".
 
 Usage
   # explicit block sets, one per line, "label<TAB>blk,blk,..." on stdin
-  map_blocks.py enumerate master.map --fixed Sa --axes absorb,sb1 \\
+  compose_blocks.py enumerate master.map --fixed Sa --axes absorb,sb1 \\
     | scan_blocks.py --master master.map --out <TERM>.map \\
         --regen "bash .../regen_rebuild.sh -n 13 -l RR -s src/process/P -t test/process/P -m checkNtoM" \\
         --run   "./checkNtoM 1 1 80 60 2" --run-cwd test/process/P \\
@@ -178,7 +178,7 @@ def main():
 
     here = os.path.dirname(os.path.abspath(__file__))
     mb = os.path.normpath(os.path.join(
-        here, "..", "..", "write-subtraction", "scripts", "map_blocks.py"))
+        here, "..", "..", "write-subtraction", "scripts", "compose_blocks.py"))
     combos = []
     for ln in sys.stdin:
         ln = ln.rstrip("\n")

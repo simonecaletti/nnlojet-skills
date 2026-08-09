@@ -344,7 +344,7 @@ Deciding WHICH block of the subtraction is responsible is a procedure,
 not an improvisation:
 
 0. **Re-audit the structure** (seconds, no run):
-   `predict_blocks.py spec.json --modes modes.json --audit <TERM>.map`
+   `audit_blocks.py spec.json <TERM>.map --modes modes.json`
    then `pole_ledger.py <TERM>.map --spec spec.json` (both
    write-subtraction). A whole missing/spurious block, a Full
    composite that must be split, a stale cluster or an unpaired
@@ -391,7 +391,7 @@ not an improvisation:
    regenerate+rebuild+run per hypothesis.
 4. **Bisect over blocks** — the fallback for what attribution cannot
    answer (e.g. whether a whole block should exist at all). Compose
-   the term from block subsets (write-subtraction's `map_blocks.py`),
+   the term from block subsets (write-subtraction's `compose_blocks.py`),
    regenerate+rebuild in one command (autogen-subtraction's wrapper),
    rerun the failing mode only (`./check ITYPE MODELO MODEHI` where
    the CLI supports it).
@@ -416,7 +416,7 @@ not an improvisation:
    them unattended:
 
    ```bash
-   python .claude/skills/write-subtraction/scripts/map_blocks.py \
+   python .claude/skills/write-subtraction/scripts/compose_blocks.py \
        enumerate master.map --fixed Sa --axes absorb,sb1 \
    | python .claude/skills/run-spike-test/scripts/scan_blocks.py \
        --master master.map --out <TERM>.map \

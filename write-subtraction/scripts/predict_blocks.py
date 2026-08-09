@@ -9,13 +9,15 @@ adjudicate — a disagreement between prediction and measurement is
 itself the highest-value diagnostic, because it means the block
 STRUCTURE is wrong, not just a coefficient.
 
+Companion commands consuming the same spec (and this module's predict()):
+  emit_skeleton.py  — write a '# block:'-marked composable master
+  audit_blocks.py   — compare a written .map against the prediction
+
 Usage:
   python predict_blocks.py spec.json                  # table
   python predict_blocks.py spec.json --json
-  python predict_blocks.py spec.json --emit-markers   # map_blocks.py skeleton
-  python predict_blocks.py spec.json --audit TERM.map # exits 1 on mismatch
   python predict_blocks.py --selftest
-  (-o FILE writes instead of stdout, as in map_blocks.py)
+  (-o FILE writes instead of stdout)
 
 Spec — a SUPERSET of genuine_modes.py's spec, so one file can feed both.
 CAVEAT: the two read DIFFERENT keys (that script: `partons`, final state
@@ -58,14 +60,11 @@ Two limitations that matter:
 import argparse
 import itertools
 import json
-import re
 import sys
 from fractions import Fraction
 
-# MUST stay byte-identical to map_blocks.py's pair: that script WRITES the
-# format this one AUDITS.
-MARKER = re.compile(r"^\s*#\s*block:\s*(\S+)")
-LABEL = re.compile(r"\*a(\d+)\b")
+from _colour_algebra import (species, cluster_parent, distance, neighbours,
+                             in_chain_order, connected_radiators, config_of)
 
 # Coefficient with which each tree 3-parton antenna enters its integrated
 # dipole in maple/form/common/J21.map — verbatim, FF entries:
@@ -103,18 +102,6 @@ BLOCK_SIGN = {"Sa": "+", "Sb1": "+", "Sb2": "-", "Sc": "-", "Sd": "-"}
 BLOCK_ORDER = ["Sa", "Sb1", "Sb2", "Sc", "Sd"]
 
 
-# ---------------- chain algebra ----------------
-
-def species(f):
-    """flavour string -> 'g' or 'q' (quark and antiquark both 'q' for
-    radiator-pair purposes)."""
-    if f == "g":
-        return "g"
-    if f.startswith("q"):
-        return "q"
-    raise ValueError(f"bad flavour {f!r} (want g / q<tag> / qb<tag>)")
-
-
 def check_spec(spec):
     chain = spec.get("chain")
     if not chain or len(chain) < 3:
@@ -131,88 +118,6 @@ def check_spec(spec):
     for l in chain:
         species(fl[str(l)])                       # raises on a bad flavour
     return chain, fl, set(spec.get("initial", [])), bool(spec.get("cyclic"))
-
-
-def distance(chain, cyclic, a, b):
-    """Colour-chain distance. 1 = adjacent = colour connected."""
-    n = len(chain)
-    d = abs(chain.index(a) - chain.index(b))
-    return min(d, n - d) if cyclic else d
-
-
-def neighbours(chain, cyclic, leg):
-    """Chain neighbours of a leg — its candidate hard radiators, in chain
-    order. A leg with fewer than two cannot sit in an antenna's middle
-    slot."""
-    n = len(chain)
-    i = chain.index(leg)
-    out = []
-    if i > 0:
-        out.append(chain[i - 1])
-    elif cyclic:
-        out.append(chain[-1])
-    if i < n - 1:
-        out.append(chain[i + 1])
-    elif cyclic:
-        out.append(chain[0])
-    return out
-
-
-def in_chain_order(chain, legs):
-    """Order legs by colour-chain position — NOT by numeric label. The
-    FF/IF/FI distinction depends on which radiator comes first. Only
-    meaningful on a LINEAR chain; for a cyclic one use
-    connected_radiators, which walks the chain instead."""
-    return sorted(legs, key=chain.index)
-
-
-def connected_radiators(chain, cyclic, j, k):
-    """For an ADJACENT pair, return the two hard radiators in true chain
-    order: the leg before the pair and the leg after it. Walking the
-    chain (rather than sorting by index) is what makes this correct
-    across the cyclic wrap, where index order is meaningless."""
-    n = len(chain)
-    ij = chain.index(j)
-    first, second = (j, k) if chain[(ij + 1) % n] == k else (k, j)
-    i1, i2 = chain.index(first), chain.index(second)
-    before = chain[(i1 - 1) % n] if (cyclic or i1 > 0) else None
-    after = chain[(i2 + 1) % n] if (cyclic or i2 < n - 1) else None
-    return [x for x in (before, after) if x is not None]
-
-
-def cluster_parent(flavs):
-    """Net flavour of a collinear cluster: 'g', 'q<tag>'/'qb<tag>', or
-    None if the net is not a single parton. Same rule as
-    genuine_modes.py (write-spike-test) — kept local to keep this script
-    dependency-free; if the two ever disagree, genuine_modes.py wins."""
-
-    net = {}
-    for f in flavs:
-        if f == "g":
-            continue
-        if f.startswith("qb"):
-            t, s = f[2:], -1
-        else:
-            t, s = f[1:], +1
-        net[t] = net.get(t, 0) + s
-    nz = {t: v for t, v in net.items() if v}
-    total = sum(abs(v) for v in nz.values())
-    if total == 0:
-        return "g"
-    if total == 1:
-        (t, v), = nz.items()
-        return f"q{t}" if v > 0 else f"qb{t}"
-    return None
-
-
-def config_of(chain_initial, legs):
-    """FF / IF / FI / II from which radiators are initial-state."""
-    flags = [l in chain_initial for l in legs]
-    if not any(flags):
-        return "FF"
-    if all(flags):
-        return "II"
-    return "IF" if flags[0] else "FI"
 
 
 def family_hint(fl, rad, unres):
@@ -380,7 +285,21 @@ def predict(spec, modes=None):
             "pairs": pairs, "lines": lines, "counts": counts}
 
 
-# ---------------- outputs ----------------
+def predict_from_files(spec_path, modes_path=None):
+    """Shared entry point for the three rung-0 commands (this one,
+    emit_skeleton.py, audit_blocks.py): load spec (+ optional
+    genuine_modes.py --json output), predict, and print the warnings to
+    stderr — a prediction built from the fallback leg list must not look
+    authoritative on ANY output path."""
+    spec = json.load(open(spec_path))
+    modes = json.load(open(modes_path)) if modes_path else None
+    pred = predict(spec, modes)
+    for w in pred["warnings"]:
+        print(f"WARNING: {w}", file=sys.stderr)
+    return pred
+
+
+# ---------------- output ----------------
 
 def render(pred):
     out = [f"chain {pred['chain']}  cyclic={pred['cyclic']}  "
@@ -409,81 +328,19 @@ def render(pred):
         out.append(f"        {ln['note']}")
     out += ["", "NEXT: this is a PREDICTION. Confirm each line by measurement "
             "(probe-me-ir-structure) before composing. A disagreement means "
-            "the block STRUCTURE is wrong, not the coefficient."]
+            "the block STRUCTURE is wrong, not the coefficient. "
+            "emit_skeleton.py writes the composable master; audit_blocks.py "
+            "checks a written .map back against this prediction."]
     return "\n".join(out)
-
-
-def emit_markers(pred, fn="FN_PLACEHOLDER"):
-    """A map_blocks.py-composable skeleton: one placeholder term per
-    predicted line, grouped under '# block:' markers, aN gap-free. The
-    label is placed BEFORE the trailing comment so it survives as a
-    label, not as commented-out text."""
-    body, i = [], 0
-    for b in BLOCK_ORDER:
-        sel = [l for l in pred["lines"] if l["block"] == b]
-        if not sel:
-            continue
-        body.append(f"# block: {b}")
-        for ln in sel:
-            i += 1
-            stem = (ln["family_hint"].replace("*", "x").replace(" ", "")
-                    .replace("-", "_"))
-            tag = "_".join(map(str, ln["unresolved"]))
-            body.append(f"{ln['sign']}TODO_{stem}_{tag}*a{i}"
-                        f"    # rad={ln['radiators']} {ln['config']} "
-                        f"coeff~{ln['coeff_hint']}")
-    blocks = ",".join(b for b in BLOCK_ORDER if b in pred["counts"])
-    return "\n".join(
-        ["# PREDICTED SKELETON — placeholders, NOT a valid .map.",
-         "# Replace each TODO_* with antenna(args)*reducedME(args)*JETnm(args),",
-         f"# then: map_blocks.py compose <this> --blocks {blocks} -o TERM.map"]
-        + [f"# !! {w}" for w in pred["warnings"]]
-        + [f"FN:={fn}:", "XX:="] + body + [":"]) + "\n"
-
-
-def audit(pred, text):
-    """Compare a written .map against the prediction. STRUCTURAL ONLY: it
-    checks which blocks exist and how many terms each carries. It cannot
-    check antenna letters, arguments or mappings — those are measured."""
-    actual, cur = {}, None
-    for ln in text.splitlines():
-        m = MARKER.match(ln)
-        if m:
-            cur = m.group(1)
-            actual.setdefault(cur, 0)
-        elif cur is not None:
-            actual[cur] += len(LABEL.findall(ln))
-    if not actual:
-        return ["no '# block:' markers found — the file is not composed from "
-                "a block master, so the audit cannot run."]
-    stems = {k.split("_")[0] for k in actual}
-    rep = []
-    for b in BLOCK_ORDER:
-        if b not in pred["counts"]:
-            continue
-        n = pred["counts"][b]
-        if b not in stems:
-            rep.append(f"MISSING  {b}: predicted {n} line(s), block absent")
-            continue
-        got = sum(v for k, v in actual.items() if k.split("_")[0] == b)
-        if got != n:
-            rep.append(f"COUNT    {b}: predicted {n}, file has {got} "
-                       "(per-ordering counts are upper bounds — a colour-"
-                       "summed term may legitimately differ)")
-        else:
-            rep.append(f"ok       {b}: {n}")
-    for k in sorted(actual):
-        if k != "_default" and k.split("_")[0] not in pred["counts"]:
-            rep.append(f"EXTRA    {k}: present but not predicted — either a "
-                       "second colour ordering, or a spurious block")
-    return rep
 
 
 # ---------------- selftest ----------------
 
 def selftest():
     """Checks ALGORITHM invariants only. Encodes no real process's block
-    answer, and no coefficient beyond the table's internal consistency."""
+    answer, and no coefficient beyond the table's internal consistency.
+    (Skeleton emission and audit invariants live in emit_skeleton.py's
+    and audit_blocks.py's own selftests.)"""
     spec = {"chain": [1, 3, 4, 5, 2],
             "flavours": {"1": "q1", "3": "g", "4": "g", "5": "g", "2": "qb1"},
             "initial": [1, 2],
@@ -561,25 +418,7 @@ def selftest():
     assert cfg[(4,)] == "FF", cfg      # radiators 3, 5
     assert cfg[(5,)] == "FI", cfg      # radiators 4, 2(initial) -> F then I
 
-    # 8. emitted skeleton is gap-free and audits clean against itself
-    skel = emit_markers(p)
-    labels = [int(x) for x in LABEL.findall(skel)]
-    assert labels == list(range(1, len(p["lines"]) + 1)), labels
-    # the label must not be swallowed by the trailing comment
-    for ln in skel.splitlines():
-        if "*a" in ln and "#" in ln:
-            assert ln.index("*a") < ln.index("#"), ln
-    assert all(r.startswith("ok") for r in audit(p, skel)), audit(p, skel)
-
-    # 9. the audit detects under-count, missing blocks and extra blocks
-    rep = audit(p, "# block: Sa\n+X*a1\n")
-    assert any(r.startswith("COUNT") and " Sa:" in r for r in rep), rep
-    assert any(r.startswith("MISSING") for r in rep), rep
-    rep = audit(p, "# block: Sa\n+X*a1\n# block: Zz\n+Y*a2\n")
-    assert any(r.startswith("EXTRA") for r in rep), rep
-    assert audit(p, "no markers here")[0].startswith("no '# block:'")
-
-    # 10. malformed specs are refused, never guessed
+    # 8. malformed specs are refused, never guessed
     for bad in ({"chain": [1, 2], "flavours": {"1": "g", "2": "g"}},
                 {"chain": [1, 2, 3], "flavours": {"1": "g", "2": "g"}},
                 {"chain": [1, 2, 3],
@@ -594,9 +433,9 @@ def selftest():
         except (SystemExit, ValueError):
             pass
 
-    # 11. the X30 table is a subset of the observed rational family, and the
-    #     family is NOT all unit fractions (2 and 2/3 are live in J22.map —
-    #     an assertion demanding numerator==1 would be wrong, not strict)
+    # 9. the X30 table is a subset of the observed rational family, and the
+    #    family is NOT all unit fractions (2 and 2/3 are live in J22.map —
+    #    an assertion demanding numerator==1 would be wrong, not strict)
     assert set(X30_COEFF.values()) <= RATIONAL_FAMILY, X30_COEFF
     assert Fraction(2) in RATIONAL_FAMILY and \
         Fraction(2, 3) in RATIONAL_FAMILY, RATIONAL_FAMILY
@@ -605,8 +444,8 @@ def selftest():
         if ln["block"] == "Sb1":
             assert "not predicted" in ln["coeff_hint"], ln
 
-    # 11b. colour-neighbouring is a PAIR-OF-CLUSTERS property, so it must be
-    #      falsifiable: with the outward clusters flavour-invalid it is off
+    # 9b. colour-neighbouring is a PAIR-OF-CLUSTERS property, so it must be
+    #     falsifiable: with the outward clusters flavour-invalid it is off
     cn = {tuple(x["pair"]): x["colour_neighbouring"] for x in p["pairs"]}
     assert cn[(3, 4)] and cn[(4, 5)], cn        # q-g and g-qb clusters valid
     dead = predict({"chain": [1, 3, 4, 2],
@@ -619,7 +458,7 @@ def selftest():
     assert dead["pairs"][0]["colour_neighbouring"] is False, dead["pairs"][0]
     assert dead["pairs"][0]["neighbouring_clusters"] is None
 
-    # 12. --modes wiring: genuine modes drive the leg list, dead ones do not
+    # 10. --modes wiring: genuine modes drive the leg list, dead ones do not
     modes = [{"family": "ss", "name": "4 soft", "genuine": True},
              {"family": "ss", "name": "3 soft", "genuine": False},
              {"family": "sco", "name": "4||5", "genuine": True}]
@@ -638,31 +477,12 @@ def main():
     ap.add_argument("spec")
     ap.add_argument("--modes", help="genuine_modes.py --json output")
     ap.add_argument("--json", action="store_true")
-    ap.add_argument("--emit-markers", action="store_true")
-    ap.add_argument("--audit", metavar="TERM.map")
     ap.add_argument("-o", "--output")
     args = ap.parse_args()
-    spec = json.load(open(args.spec))
-    modes = json.load(open(args.modes)) if args.modes else None
-    pred = predict(spec, modes)
-
-    # warnings go to stderr on EVERY path — a prediction built from the
-    # fallback leg list must not look authoritative just because the caller
-    # asked for --json or --audit
-    for w in pred["warnings"]:
-        print(f"WARNING: {w}", file=sys.stderr)
-
-    if args.audit:
-        rep = audit(pred, open(args.audit).read())
-        for r in rep:
-            print(r)
-        # a gate that cannot fail is not a gate
-        raise SystemExit(0 if all(r.startswith("ok") for r in rep) else 1)
+    pred = predict_from_files(args.spec, args.modes)
 
     if args.json:
         out = json.dumps(pred, indent=1) + "\n"
-    elif args.emit_markers:
-        out = emit_markers(pred)
     else:
         out = render(pred) + "\n"
     if args.output:

@@ -96,6 +96,19 @@ answers in minutes-to-hours:
 - Review aids: `maple/process/<DIR>/view<PROC><RR|RV|VV>.tex` and generated
   `auto*.tex` — LaTeX rendering of every term.
 
+This skill's `scripts/` — one command per job, all with `--selftest`;
+one spec file drives the first three:
+
+- `predict_blocks.py` — rung 0: predict the block skeleton;
+- `emit_skeleton.py` — write the `# block:`-marked composable master;
+- `audit_blocks.py` — compare a written `.map` against the prediction;
+- `compose_blocks.py` — compose a `.map` from block subsets / axes;
+- `pole_ledger.py` — static whole-`.map` bookkeeping check.
+
+(The underscore-prefixed `_colour_algebra.py`, `_block_structure.py`,
+`_map_parser.py` are shared libraries imported by the commands, not
+commands themselves.)
+
 ## File naming
 
 `<initial state><ME layer><n>g<l><PROC><Type>.map`, e.g. `qqbBt2g0ZS.map`.
@@ -204,17 +217,19 @@ it first, then let the measurement stack adjudicate.
 # them. Keep them in sync by hand, or keep two files.
 python .claude/skills/write-spike-test/scripts/genuine_modes.py spec.json --json > modes.json
 python .claude/skills/write-subtraction/scripts/predict_blocks.py spec.json --modes modes.json
-python .claude/skills/write-subtraction/scripts/predict_blocks.py spec.json --emit-markers > master.map
-python .claude/skills/write-subtraction/scripts/predict_blocks.py spec.json --audit TERM.map
-python .claude/skills/write-subtraction/scripts/predict_blocks.py --selftest
+python .claude/skills/write-subtraction/scripts/emit_skeleton.py spec.json -o master.map
+python .claude/skills/write-subtraction/scripts/audit_blocks.py spec.json TERM.map
+# every command also takes --selftest
 ```
 
-It prints, per unresolved pair, the colour-connection class and the
-block it implies; per line, the sign, the FF/IF/FI/II configuration, the
-antenna family hint and the expected coefficient. `--emit-markers`
+`predict_blocks.py` prints, per unresolved pair, the colour-connection
+class and the block it implies; per line, the sign, the FF/IF/FI/II
+configuration, the antenna family hint and the expected coefficient.
+Two companion commands consume the same spec: `emit_skeleton.py`
 writes a `# block:`-marked skeleton that feeds straight into
-`map_blocks.py`; `--audit` compares a written `.map` back against the
-prediction and reports missing, extra and mis-counted blocks.
+`compose_blocks.py`; `audit_blocks.py` compares a written `.map` back
+against the prediction and reports missing, extra and mis-counted
+blocks.
 
 **The one fact it encodes** (hep-ph/0505111 §2.3.1): `dσ^{S,a}` alone
 **vanishes** in genuinely colour-connected double-unresolved limits and
@@ -294,7 +309,7 @@ diagnostic, and the third is the one that is otherwise missed:
   NOT write the fitted number. Either the basis is incomplete, a
   reduced-ME argument order is wrong, **or the block structure itself is
   wrong** — and only a prediction to compare against makes that third
-  cause visible at all. Re-run `predict_blocks.py --audit` on the file
+  cause visible at all. Re-run `audit_blocks.py` on the file
   before touching coefficients.
 
 Judge membership, not decimals: `0.667` is `2/3`, a live coefficient,
@@ -393,7 +408,7 @@ SCOPE — existence, not sufficiency: the ledger detects MISSING
 structure; a block touching the right invariants with the wrong
 coefficients or mapping still passes. Coefficient-level completeness
 remains the spike test's job. Order of operations:
-`predict_blocks.py --audit` (counts) → `pole_ledger.py` (invariants)
+`audit_blocks.py` (counts) → `pole_ledger.py` (invariants)
 → generate → spike test (numbers).
 
 The line list is DERIVED from the full ME, not invented:
@@ -607,7 +622,7 @@ The line list is DERIVED from the full ME, not invented:
    reproduces the collinear limit and matches no X40. The G30- and
    E30-radiator arrangements are ALTERNATIVE COMPLETE DECOMPOSITIONS
    of the same block (both verified on the same channel with their
-   matching X40 pairings) — treat the choice as a `map_blocks.py`
+   matching X40 pairings) — treat the choice as a `compose_blocks.py`
    AXIS, and note it constrains the S,b1/S,b2 blocks built on it: an
    E30-radiator S,a pairs with the E40 whose quark radiator it uses.
 
@@ -650,8 +665,8 @@ The line list is DERIVED from the full ME, not invented:
    half of the check, which costs nothing:
 
    ```bash
-   python .claude/skills/write-subtraction/scripts/predict_blocks.py \
-          spec.json --modes modes.json --audit <TERM>.map
+   python .claude/skills/write-subtraction/scripts/audit_blocks.py \
+          spec.json <TERM>.map --modes modes.json
    ```
 
    It reports blocks predicted but absent (`MISSING`), present but not
@@ -776,11 +791,11 @@ means renumbering everything below. Use the block composer instead:
 
 ```bash
 # master file: your .map with '# block: <name>' comment markers
-# (predict_blocks.py --emit-markers writes a starting master for you)
-python .claude/skills/write-subtraction/scripts/map_blocks.py list  master.map
-python .claude/skills/write-subtraction/scripts/map_blocks.py compose master.map \
+# (emit_skeleton.py writes a starting master for you)
+python .claude/skills/write-subtraction/scripts/compose_blocks.py list  master.map
+python .claude/skills/write-subtraction/scripts/compose_blocks.py compose master.map \
        --blocks Sa,Sb1,Sb2_f1 -o <TERM>.map      # renumbers aN gap-free
-python .claude/skills/write-subtraction/scripts/map_blocks.py --selftest
+python .claude/skills/write-subtraction/scripts/compose_blocks.py --selftest
 ```
 
 Keep ALL candidate lines in the master, group them under block
@@ -816,9 +831,9 @@ and an axis is the only construct that expresses that:
 ```
 
 ```bash
-map_blocks.py axes      master.map                 # options + product size
-map_blocks.py enumerate master.map --fixed Sa_g --axes absorb,sb1
-map_blocks.py compose   master.map --select absorb=near,sb1=E40a --fixed Sa_g -o <TERM>.map
+compose_blocks.py axes      master.map                 # options + product size
+compose_blocks.py enumerate master.map --fixed Sa_g --axes absorb,sb1
+compose_blocks.py compose   master.map --select absorb=near,sb1=E40a --fixed Sa_g -o <TERM>.map
 ```
 
 `enumerate` emits the cross-product as ready-to-compose block lists —
@@ -976,7 +991,7 @@ to which class — regenerate and inspect it when debugging structure.
 
 The failing mode reported by run-spike-test names the limit (e.g.
 "5||6 collinear", "6 soft", "triple collinear 567"). **Re-run rung 0
-first** — `predict_blocks.py --audit <TERM>.map` costs seconds and, if
+first** — `audit_blocks.py spec.json <TERM>.map` costs seconds and, if
 a whole block is missing or an extra one is present, tells you so
 before any per-line reasoning — **then the pole ledger**
 (`pole_ledger.py`, section above): a split-required composite, a

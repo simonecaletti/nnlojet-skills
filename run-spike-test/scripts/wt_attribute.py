@@ -279,7 +279,7 @@ def check_generator_support():
         "  The per-line dump is emitted by the GENERATOR, so no run of the\n"
         "  check program can produce WTDBG lines here — regenerating and\n"
         "  rebuilding first would be wasted.\n"
-        "  Use instead: block bisection with map_blocks.py compose\n"
+        "  Use instead: block bisection with compose_blocks.py compose\n"
         "  (write-subtraction) + scan_blocks.py, which needs no dump.\n"
         "  To enable attribution in this tree, add the wtdebug branch to\n"
         "  maple/makefortRR (emit `if(wtdebug=1)` write statements of the\n"
