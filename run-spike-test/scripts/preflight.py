@@ -37,6 +37,8 @@ unrotated / partly rotated).
 """
 
 import argparse
+import glob
+import json
 import os
 import re
 import sys
@@ -60,6 +62,28 @@ def parse_banner(text):
         hits = re.findall(r"([A-Za-z][A-Za-z0-9]*)\s*\(\s*(\d+)\s*\)", rhs)
         if len(hits) >= 3:
             return {int(n): nm for nm, n in hits}
+    return {}
+
+
+def parse_spec(root, proc):
+    """index -> parton name from maple/process/<proc>/*.spec.json.
+
+    Authoritative and format-independent: the generated banner does not
+    always carry indices (`-> qb g Q Qb q`), so parsing prose is a
+    fallback, not the primary source.
+    """
+    for path in sorted(glob.glob(os.path.join(
+            root, "maple", "process", proc, "*.spec.json"))):
+        try:
+            d = json.load(open(path))
+        except (OSError, ValueError):
+            continue
+        tab = d.get("fs_partons") or d.get("partons") or {}
+        if tab:
+            try:
+                return {int(k): v for k, v in tab.items()}
+            except (TypeError, ValueError):
+                continue
     return {}
 
 
@@ -150,9 +174,9 @@ def parse_modes(text):
     return modes
 
 
-def audit_rotation(path):
+def audit_rotation(path, banner=None):
     text = open(path, errors="replace").read()
-    banner = parse_banner(text)
+    banner = banner or parse_banner(text)
     if not banner:
         return None                        # UNCHECKED, not "clean"
     modes = parse_modes(text)
@@ -259,7 +283,7 @@ def main():
         print(f"  ! {src} not found")
         rot = []
     else:
-        rot = audit_rotation(src)
+        rot = audit_rotation(src, parse_spec(a.root, proc))
         if rot is None:
             print("  UNCHECKED — no channel banner / no stitle metadata "
                   "in this program, so the rotation rule cannot be "
