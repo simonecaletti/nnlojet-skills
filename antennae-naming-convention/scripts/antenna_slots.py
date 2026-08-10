@@ -397,6 +397,58 @@ def selftest():
     print("antenna_slots selftest OK")
 
 
+def emit_call(root, name, legs_csv, out=print):
+    """Mechanical inversion of a (possibly permuted) declaration: given
+    the legs you want in the NAMED slots A,B,C[,D] -- i.e. in the order
+    the generic cluster rule reads them -- print the POSITIONAL call
+    that realises exactly that assignment, plus the clusters it will
+    produce.  This removes the error class of anchoring the named legs
+    on a sibling antenna's argument pattern and mis-permuting by hand:
+    derive the named legs from the clusters your line needs, then let
+    this do the permutation."""
+    legs = [x.strip() for x in legs_csv.split(",") if x.strip()]
+    found = None
+    for d in SRC_DIRS:
+        pdir = os.path.join(root, d)
+        if not os.path.isdir(pdir):
+            continue
+        for f in sorted(os.listdir(pdir)):
+            if not f.endswith(".f"):
+                continue
+            try:
+                text = open(os.path.join(pdir, f), errors="replace").read()
+            except OSError:
+                continue
+            for nm, args in parse_decls(text):
+                if nm == name:
+                    found = (args, os.path.join(d, f))
+    if found is None:
+        out(f"ERROR: no declaration of {name} found under {SRC_DIRS}")
+        return 1
+    args, src = found
+    slots, extras, _ = slot_info(args)
+    canon = sorted(slots, key=lambda a: int(a[1:]))
+    if len(legs) != len(canon):
+        out(f"ERROR: {name} has {len(canon)} named slots "
+            f"({','.join(canon)}); got {len(legs)} legs")
+        return 1
+    leg_of = {sl: legs[i] for i, sl in enumerate(canon)}
+    positional = [leg_of[sl] for sl in slots]
+    call = f"{name}({','.join(positional)}" +            ("," + ",".join(extras) if extras else "") + ")"
+    out(f"  declaration: {name}({','.join(args)})   [{src}]")
+    out(f"  named legs (A,B,..) = ({','.join(legs)})")
+    out(f"  positional call:  {call}")
+    if len(legs) == 4:
+        out(f"  generic-rule clusters: [{legs[0]},{legs[1]},{legs[2]}] "
+            f"and [{legs[3]},{legs[2]},{legs[1]}]")
+    elif len(legs) == 3:
+        out(f"  generic-rule clusters: [{legs[0]},{legs[1]}] "
+            f"and [{legs[1]},{legs[2]}]")
+    out("  CONFIRM the physics (which slots radiate) against the "
+        "datasheet pole graph before use.")
+    return 0
+
+
 def main():
     if "--selftest" in sys.argv:
         selftest()
@@ -406,7 +458,16 @@ def main():
     ap.add_argument("--name", help="filter by antenna-name substring")
     ap.add_argument("--all", action="store_true",
                     help="do not abbreviate group listings")
+    ap.add_argument("--call", metavar="NAME",
+                    help="emit the positional call realising --legs in "
+                         "the NAMED (cluster-rule) slot order")
+    ap.add_argument("--legs", metavar="A,B,C[,D]",
+                    help="legs for the named slots, with --call")
     args = ap.parse_args()
+    if args.call:
+        if not args.legs:
+            ap.error("--call requires --legs")
+        raise SystemExit(emit_call(args.root, args.call, args.legs))
     audit(args.root, args.name, args.all)
 
 

@@ -193,7 +193,19 @@ Reading the profile — this is the whole point of the mode:
 | flat but wide per-bin spread | the bulk cancels and a TAIL does not. Two causes, distinguish before concluding: (a) gluon parent + wrong spin structure (azimuthal terms survive the built-in `rotp` average); (b) jet-cut acceptance differing between target and candidate, which zeroes one of them on part of the sample — check by re-profiling with `cuts_call` removed. A ~10% spread with a quark parent is (b) far more often than (a) |
 
 The middle two rows are the ones a least-squares fit cannot report at
-all: it returns a number either way. Spec fields mirror the other
+all: it returns a number either way.
+
+**Profile COMPLETE decompositions, not single lines.** Alternative
+complete decompositions of the same block (e.g. gluon-radiator
+`G30 x redME` vs the quark-radiator pair `1/2(E30+E30) x redME`) are
+EACH flat at 1.000000 in the limit they cover — a per-line profile
+cannot rank them, and the tightest single-line spread is not evidence
+(observed: it selected the leading-colour arrangement for a term whose
+reference implementation uses the quark-radiator pair). Put each full
+candidate decomposition in ONE candidate via `"terms"` (several
+expr/map pieces summed), and decide between decompositions by what
+they force DOWNSTREAM: the radiator choice fixes which X40 family the
+S,b1/S,b2 blocks must use (write-subtraction). Spec fields mirror the other
 generators (`coll` names the collinear pair, `zref` the hard reference,
 `candidates` a list of independent expressions).
 

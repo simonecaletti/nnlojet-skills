@@ -160,6 +160,13 @@ class LineCheck:
                  subleading=False):
         self.aN = aN
         self.term = term
+        # S,c soft-path lines (SS-set factor): the ledger's mapping model
+        # does not cover the generator's wtsoft branch, so set/cluster
+        # complaints on such lines are advisory, not structural.
+        _facs = (term.get("factors", [])
+                 if isinstance(term, dict) else [])
+        self.has_ss = any(f[0] in ("SFF", "SIF", "SFI", "SII")
+                          for f in _facs)
         self.subleading = subleading      # spec: colour == 'subleading'
         self.flavours = flavours          # leaf -> flavour string
         self.sheet = sheet
@@ -206,10 +213,15 @@ class LineCheck:
             nargs = [norm(a) for a in args]
             for a in nargs:
                 if a not in current:
-                    self.err(f"{token} argument {show(a)} is not an "
-                             f"available momentum at this point "
-                             f"(stale or mistyped cluster)")
-                    ok = False
+                    msg = (f"{token} argument {show(a)} is not an "
+                           f"available momentum at this point "
+                           f"(stale or mistyped cluster)")
+                    if self.has_ss:
+                        self.warn(msg + " [soft-path line: mapping model "
+                                  "out of scope]")
+                    else:
+                        self.err(msg)
+                        ok = False
             # generic cluster rule
             if nslot == 3:
                 cl = [(args[0], args[1]), (args[1], args[2])]
@@ -249,10 +261,21 @@ class LineCheck:
                                                 key=repr)]
                 extra = [show(c) for c in sorted(set(pargs) - current,
                                                  key=repr)]
-                self.err(f"{what} {name} momentum set mismatch: "
-                         f"missing {miss or '-'} / not produced by the "
-                         f"mappings {extra or '-'}")
-                ok = False
+                msg = (f"{what} {name} momentum set mismatch: "
+                       f"missing {miss or '-'} / not produced by the "
+                       f"mappings {extra or '-'}")
+                if what == "JET":
+                    # the generator derives set_map from the ANTENNA
+                    # cluster and ignores JET argument identity (validated
+                    # reference terms carry mismatched JET sets) -- style
+                    # hygiene, not physics
+                    self.warn(msg + " [JET args are annotation only]")
+                elif self.has_ss:
+                    self.warn(msg + " [soft-path line: mapping model out "
+                              "of scope; verify the emitted wtsoft block]")
+                else:
+                    self.err(msg)
+                    ok = False
         return ok
 
     # -- soft eikonal dipoles vs the colour chain --
@@ -349,31 +372,55 @@ class LineCheck:
 
     # -- flavour / species --
 
+    def _species_violations(self, token, args, entry):
+        out = []
+        species = entry.get("species")
+        if species:
+            for k, (sp, a) in enumerate(zip(species, args), 1):
+                fl = self.flav_of(a)
+                if fl is None:
+                    continue
+                want = "g" if sp == "g" else "Q"
+                if kind_class(fl) != want:
+                    out.append(f"{token} slot {k} wants {want}, got "
+                               f"{show(a)} = {fl}")
+        for (p, q) in entry.get("slot_pairs", []):
+            fa = self.flav_of(args[p - 1])
+            fb = self.flav_of(args[q - 1])
+            if fa is None or fb is None:
+                continue
+            ka, ta = fparse(fa)
+            kb, tb = fparse(fb)
+            if ta != tb or {ka, kb} != {"q", "qb"}:
+                out.append(f"{token} slots ({p},{q}) must hold a "
+                           f"same-flavour quark/antiquark pair, got "
+                           f"{fa},{fb}")
+        return out
+
     def check_species(self):
         for token, args, entry in self.antennae:
-            species = entry.get("species")
-            if species:
-                for k, (sp, a) in enumerate(zip(species, args), 1):
-                    fl = self.flav_of(a)
-                    if fl is None:
-                        continue
-                    want = "g" if sp == "g" else "Q"
-                    if kind_class(fl) != want:
-                        self.err(
-                            f"{token} slot {k} wants {want}, got "
-                            f"{show(a)} = {fl}")
-            for (p, q) in entry.get("slot_pairs", []):
-                fa = self.flav_of(args[p - 1])
-                fb = self.flav_of(args[q - 1])
-                if fa is None or fb is None:
-                    continue
-                ka, ta = fparse(fa)
-                kb, tb = fparse(fb)
-                if ta != tb or {ka, kb} != {"q", "qb"}:
-                    self.err(
-                        f"{token} slots ({p},{q}) must hold a "
-                        f"same-flavour quark/antiquark pair, got "
-                        f"{fa},{fb}")
+            # species/slot_pairs are recorded against a slot frame that
+            # is AMBIGUOUS for a permuted declaration (e.g. FullEt40
+            # declared (i1,i2,i4,i3)): some datasheet entries carry the
+            # canonical i1..iN frame, others the positional one.  A
+            # validated call must not be flagged by frame mismatch:
+            # check BOTH frames and error only if NEITHER is consistent.
+            frames = [args]
+            decl = [t for t in str(entry.get("slots_declared") or "")
+                    .split(",") if t.strip().startswith("i")
+                    and t.strip()[1:].isdigit()]
+            idx = [int(t.strip()[1:]) for t in decl]
+            if len(decl) == len(args) and sorted(idx) ==                     list(range(1, len(args) + 1)):
+                canon = list(args)
+                for pos, n in enumerate(idx):
+                    canon[n - 1] = args[pos]
+                if canon != list(args):
+                    frames.append(canon)
+            per_frame = [self._species_violations(token, f, entry)
+                         for f in frames]
+            if all(v for v in per_frame):
+                for msg in per_frame[0]:
+                    self.err(msg)
 
     def check_split(self):
         for token, args, entry in self.antennae:
@@ -475,7 +522,15 @@ def run_ledger(mapfile, spec, sheet, modes, verbose=False, out=print):
                if any(leg not in flavours for leg in c)]
         if bad:
             raise ValueError(f"spec chains contain non-parton legs: {bad}")
-        adjacency = {frozenset(p) for c in chains
+        # MEASURED soft dipoles from the spec extend chain adjacency:
+        # a dipole fit (probe-me-ir-structure mode 1, with a control on a
+        # validated term) is a stronger statement than the planar chain
+        # model, and at subleading colour it is the ONLY correct one --
+        # non-planar and negative-coefficient dipoles are physical there.
+        # spec: "soft_dipoles": [["l","i"], ["j","k"], ...]
+        measured_dip = {frozenset(map(str, pr))
+                        for pr in (spec.get("soft_dipoles") or [])}
+        adjacency = measured_dip | {frozenset(p) for c in chains
                      for p in zip(c, c[1:])}
         unchecked = []
         for lc in lines:

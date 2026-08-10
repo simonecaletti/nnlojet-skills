@@ -295,6 +295,19 @@ returns exact rational coefficients in minutes. It answers which
 dipoles the S,a block needs, f1↔f2 symmetry questions, and coefficient
 normalisations, before any line is written.
 
+**A clean fit outranks every static model.** A soft dipole fit with
+~1e-14 residual AND a control run reproducing a validated term's known
+coefficients is the strongest statement in this workflow: if the
+ledger's chain-adjacency model or predict_blocks disagrees with it,
+the STATIC MODEL is out of scope (both are leading-colour/planar), not
+the measurement. Do not revert a measured block on a static objection
+— declare instead: `"colour": "subleading"` and the measured
+`"soft_dipoles": [["l","i"], ...]` in the spec, which the ledger uses
+in place of the planar chains. (Observed failure: a measured-exact
+six-dipole S,a block, later confirmed against the reference
+implementation, was reverted because the ledger called its non-planar
+dipoles impossible.)
+
 **Measurement ADJUDICATES the rung-0 prediction; it does not replace
 it.** Come to every fit with an expected answer — the block, the sign
 and the coefficient family from rung 0 — and treat the fit as a
@@ -565,7 +578,14 @@ The line list is DERIVED from the full ME, not invented:
      are carried as assets in this skill:
      `assets/sc_block_skeleton.map` + `assets/sc_block_emitted.f`):
      the generator routes a term through the soft path when its
-     antenna content is SS-set functions times at most one X30
+     antenna content is SS-set functions times at most one X30.
+     **Prefer the X30-carrying form (`SS-diff × X30 × redME`) always**:
+     the antenna supplies the set_map chain and the fillson cross-set
+     commons that SS1 reads. The antenna-LESS branch (`sum SS × MM0`)
+     is accepted by the generator but has been observed to emit
+     same-set `SS1(...,N,N)` calls with no fillson chain — NaN at run
+     time — so if you use it, inspect the emitted wtsoft block before
+     building
      (makefortRR branches "sum SS * MM0" / "X30 * sum SS * ML0",
      which toggle `insoft` and take the soft leg from the SS middle
      argument), emitting a `wtsoft` accumulation of
@@ -652,6 +672,28 @@ The line list is DERIVED from the full ME, not invented:
    intuition — it over-includes: two colour-connected quarks do not by
    themselves imply a B40-type antenna if the iterated sum matches a
    different X40's limit.
+
+   **Enumerate the candidates from the whole inventory first**:
+   `antenna_datasheet.py list --arity 4` prints every cached X40 with
+   its measured tc/ds/soft coverage in one screen, plus the registered
+   ant40set tokens NOT yet cached (measure those before choosing). The
+   observed failure mode this kills: fixating on the family a
+   neighbouring term used (its FLAVlist reduced MEs do NOT discriminate
+   — several X40 species reduce to the same MEs) while the right
+   species sits unexamined in the cache. In particular the pure
+   quark-radiator families (B40: q qb -> q qb Q Qb, no gluon) are the
+   natural Sb1 for a secondary pair off a QUARK pair — the
+   abelian/tilde structure — and never appear in leading-colour
+   neighbours.
+
+   **Coverage may be SPLIT across two X40s.** A subleading-colour term
+   can need one X40 for the quark-only tc + pair-soft modes and a
+   second (e.g. a tilde X40 at 1/2, cf. the J22 tables) for the
+   gluon-side tc modes, each with its own iterated partners.
+   Diagnostic signature that a SECOND X40 is missing, not a
+   coefficient wrong: a coefficient scan where one mode family pins
+   c = 1 exactly while another wants c = 1/2 — no coefficient
+   reconciles them, because the block is doing two antennae's jobs.
    RV (dσ^T): **T,a** = minus the integrated counterparts (`J21`) of
    the R-term's antennae × `M_n` (cancels the RV poles); **T,b** =
    `X30 × M^{1-loop}` plus the `(X31 + X30·J21)` closures; **T,c** =
@@ -716,6 +758,14 @@ for reasons that look like physics errors. The generic procedure
    of a dipole that actually exists in the full matrix element (fit it
    with probe-me-ir-structure). If it lands on a dipole the ME does
    not have, the assignment is wrong — no counterterm can repair it.
+
+**Derive the named legs from the clusters your line needs, then let
+`antenna_slots.py --call <NAME> --legs A,B,C,D` emit the positional
+call** — it applies the declaration permutation mechanically and
+prints the clusters the generic rule will produce, for confirmation.
+Never anchor the named legs on a sibling antenna's argument pattern:
+that is how a correct audit recipe still gets mis-applied by hand
+(observed twice on one term, each costing a build cycle).
 
 **Never write a wrapper to make the cluster rule match your assumed
 leg assignment — permute the ARGUMENTS instead.** If a pole scan says a

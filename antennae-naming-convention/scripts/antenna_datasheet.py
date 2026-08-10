@@ -695,6 +695,55 @@ def save_data(path, data):
     json.dump(data, open(path, "w"), indent=1, sort_keys=True)
 
 
+def cmd_list(args):
+    """One-line inventory of every cached antenna. The X40-selection
+    step of write-subtraction is a QUERY over this inventory (which
+    antennae cover the tc/ds modes the term needs) -- an antenna that
+    is never listed is never considered, and the observed failure mode
+    is fixating on the family a neighbouring term used while the right
+    species sits unexamined in the set. Tokens in ant40set/ant30set
+    that are NOT cached are listed at the end: measure them before
+    choosing, not after failing."""
+    data = load_data(args.data)
+    rows = []
+    for token in sorted(data):
+        e = data[token]
+        n = e.get("arity", "?")
+        if args.arity and str(n) != str(args.arity):
+            continue
+        m = e.get("measured", {})
+        tc = ",".join(sorted(m.get("tc", {}))) or "-"
+        ds = ",".join(sorted(m.get("ds", {}))) or "-"
+        ss = ",".join(sorted(m.get("ss", {}))) or "-"
+        sp = e.get("species")
+        sp = "".join(x[0] for x in sp) if sp else "?"
+        rows.append(f"  {token:14s} n={n} sp={sp:5s} tc[{tc:10s}] "
+                    f"ds[{ds:14s}] soft[{ss}]"
+                    + ("  SPLIT-REQ" if e.get("requires_split") else ""))
+    print(f"{len(rows)} cached antenna(e):")
+    for r in rows:
+        print(r)
+    # uncached registered tokens: the blind spot
+    try:
+        import re as _re
+        nm = open(os.path.join(args.root, "maple", "notation.map"),
+                  errors="replace").read()
+        reg = set()
+        for setname in ("ant40set", "ant30set"):
+            mm = _re.search(setname + r":=\{([^}]*)\}", nm)
+            if mm:
+                reg |= {t.strip() for t in mm.group(1).split(",")
+                        if t.strip()}
+        missing = sorted(t for t in reg if t not in data
+                         and not t.endswith(("_q", "_qp", "_g", "_qb")))
+        if missing:
+            print(f"registered but NOT cached ({len(missing)}) — "
+                  f"invisible to any coverage query until measured:")
+            print("  " + " ".join(missing))
+    except OSError:
+        pass
+
+
 def cmd_measure(args):
     root = os.path.abspath(args.root)
     fortmap = repo_fortmap(root)
@@ -1081,6 +1130,12 @@ def main():
             p.add_argument("names", nargs="+")
         p.add_argument("--data", default=default_data_path())
         p.add_argument("--root", default=".")
+
+    p = sub.add_parser("list")
+    p.add_argument("--data", default=default_data_path())
+    p.add_argument("--root", default=".")
+    p.add_argument("--arity", help="filter: 3 or 4")
+    p.set_defaults(func=cmd_list)
 
     p = sub.add_parser("measure")
     common(p)
