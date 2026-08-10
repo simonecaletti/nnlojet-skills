@@ -58,6 +58,10 @@ Spec fields (same conventions as gen_probe.py / antenna_probe.py):
                antennae, which differ from the counterterm at O(1) in a
                collinear limit even though they agree at leading power in a
                soft one — a silent source of "flat but irrational" profiles.
+  candidates may instead carry "terms": [{"expr":..,"map":..}, ...] --
+               ONE candidate summing pieces with DIFFERENT set_map calls,
+               e.g. the two halves of a split X40, which cannot be written
+               as a single expression. Same contract as gen_probe.py.
   xs_list    : default [1e-6, 1e-7, 1e-8]   (see the cutoff guidance in
                run-spike-test: look for a plateau, expect deep-x noise)
   npt        : points per x (default 400)
@@ -182,6 +186,19 @@ c     median and a robust spread (half the 16-84 percentile range)
 """
 
 
+def _azim_terms(k, c):
+    """Azimuthal-average half of a multi-map ("terms") candidate: rebuild
+    the sum on the rotated momenta, then average with the stored value."""
+    s = f"          tmpc = 0d0\n"
+    for t in c["terms"]:
+        if t.get("map"):
+            s += ("          call unset_map()\n"
+                  f"          {t['map']}\n")
+        s += f"          tmpc = tmpc + ({t['expr']})\n"
+    s += f"          cand({k+1}) = 0.5d0*(cand({k+1}) + tmpc)"
+    return s
+
+
 def emit(spec):
     cands = spec.get("candidates") or []
     if not cands:
@@ -208,6 +225,17 @@ def emit(spec):
         f"      clab({k+1}) = '{c.get('label', 'cand%d' % (k+1))[:40]}'"
         for k, c in enumerate(cands))
     def one(k, c):
+        if c.get("terms"):
+            # ONE candidate summing pieces that carry DIFFERENT mappings
+            # (e.g. the two halves of a split X40). Same contract as
+            # gen_probe.py's "terms".
+            s = f"          cand({k+1}) = 0d0\n"
+            for t in c["terms"]:
+                if t.get("map"):
+                    s += ("          call unset_map()\n"
+                          f"          {t['map']}\n")
+                s += f"          cand({k+1}) = cand({k+1}) + ({t['expr']})\n"
+            return s.rstrip("\n")
         pre = ""
         if c.get("map"):
             pre = ("          call unset_map()\n"
@@ -219,9 +247,10 @@ def emit(spec):
         azim = (f"          call rotp{npar}({ci},{cj})\n"
                 f"          tgt = 0.5d0*(tgt + {spec['target']})\n"
                 + "\n".join(
-                    (("          call unset_map()\n"
-                      f"          {c['map']}\n") if c.get("map") else "")
-                    + f"          cand({k+1}) = 0.5d0*(cand({k+1}) + {c['expr']})"
+                    (_azim_terms(k, c) if c.get("terms") else
+                     (("          call unset_map()\n"
+                       f"          {c['map']}\n") if c.get("map") else "")
+                     + f"          cand({k+1}) = 0.5d0*(cand({k+1}) + {c['expr']})")
                     for k, c in enumerate(cands)))
     cuts = ("          " + spec["cuts_call"]) if spec.get("cuts_call") else ""
     return HDR.format(

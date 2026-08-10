@@ -32,6 +32,9 @@ Spec fields (see example_spec.json):
   soft_redme     : verbatim expression using j1..j9
   basis          : list of entries:
      soft:      {"label": "(3,5)", "antenna": "FullA30FF(3,4,5,7)"}
+     multi-map: {"label": "...", "terms": [{"antenna":..,"map":..,
+                 "redme":..}, ...]}  -- one basis element summing pieces
+                 with DIFFERENT mappings (the two halves of a split X40)
      collinear: {"label": "...", "antenna": "...",
                  "map": "call set_map(...)", "redme": "..."}
 """
@@ -252,6 +255,25 @@ def generate(spec):
     else:  # collinear / residue mode: basis element = antenna [* reduced ME]
         beval = []
         for k, e in enumerate(basis, 1):
+            if "terms" in e:
+                # ONE basis entry summing several (map, antenna, redme)
+                # pieces carrying DIFFERENT mappings -- e.g. the two halves
+                # of a split X40, which cannot be written as a single
+                # expression because each half maps differently.
+                beval.append(f"          b({k}) = 0d0")
+                for t in e["terms"]:
+                    if "map" in t:
+                        beval.append("          call unset_map()")
+                        beval.append("          ipass=1")
+                        beval.append(f"          {t['map']}")
+                        beval.append("          if (ipass.ne.1) cycle")
+                    if "redme" in t:
+                        beval.append(f"          b({k}) = b({k}) + "
+                                     f"({t['antenna']})*({t['redme']})")
+                    else:
+                        beval.append(f"          b({k}) = b({k}) + "
+                                     f"({t['antenna']})")
+                continue
             if "map" in e:  # basis term evaluated on its own mapped momenta
                 beval.append("          call unset_map()")
                 beval.append("          ipass=1")

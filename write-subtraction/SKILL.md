@@ -784,6 +784,17 @@ grep -B5 -A10 'FullG40' src/process/*/auto*.f   # call site + set_map + wt()
 
 ## Iterating structural hypotheses: the block composer
 
+**NEVER hand-edit `aN` lines to test a structural hypothesis — always
+compose.** Hand edits (or a throwaway sed/python script over the `.map`)
+fail SILENTLY when a pattern stops matching: the file still parses, the
+build still succeeds, and you measure a configuration you did not intend.
+Observed failure mode: two "restore the E40b lines" edits silently did
+nothing, and the resulting spike numbers were read as evidence about a
+term that had never been built. `compose_blocks.py` renumbers `aN`
+gap-free and cannot mis-apply. This also makes BLOCK BISECTION — the
+fastest way to localise a failing mode to a block — a one-line command
+rather than a risky edit.
+
 Debugging RR structure means testing "does this block belong here?"
 many times, and each test costs a regenerate–compile–link cycle; the
 `aN` labels must stay gap-free, so hand-inserting or deleting lines
@@ -990,7 +1001,14 @@ to which class — regenerate and inspect it when debugging structure.
 ## Fixing a term after a failed spike test
 
 The failing mode reported by run-spike-test names the limit (e.g.
-"5||6 collinear", "6 soft", "triple collinear 567"). **Re-run rung 0
+"5||6 collinear", "6 soft", "triple collinear 567"). **Run
+`wt_attribute.py` (run-spike-test) FIRST, even if you doubt it applies**:
+where the per-line dump is unavailable it says so immediately and names
+the working alternative, instead of you inferring that from a silent
+`maple -Dwtdebug=1`. And do NOT reach for `regen_rebuild.sh
+--skip-ledger` while iterating: the ledger is what catches an orphaned
+counterterm or a split half used alone, which are the two errors a
+structural experiment is most likely to introduce. **Re-run rung 0
 first** — `audit_blocks.py spec.json <TERM>.map` costs seconds and, if
 a whole block is missing or an extra one is present, tells you so
 before any per-line reasoning — **then the pole ledger**

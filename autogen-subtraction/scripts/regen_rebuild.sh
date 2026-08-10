@@ -25,7 +25,11 @@
 # unpaired X40 spurious pole, a split half used without its partner, a
 # stale cluster, an orphaned counterterm. A .map with no spec is
 # reported UNCHECKED — the spec is four lines, write it. Escapes:
-#   --skip-ledger      one-off bypass (prints a warning)
+#   --skip-ledger      build even if the ledger fails. The ledger STILL
+#                      RUNS and still prints every error -- only the abort
+#                      is skipped. (It used to skip the check entirely,
+#                      which hid exactly the orphaned-counterterm errors
+#                      that cost a build cycle each to rediscover.)
 #   LEDGER_REQUIRED=1  make "no spec" a hard error too
 
 set -u
@@ -126,13 +130,18 @@ command -v maple >/dev/null 2>&1 || {
   echo "ERROR: no maple on PATH. Do NOT hand-edit auto*.f; only"
   echo "already-checked-in auto*.f can be spike-tested."; exit 1; }
 
-# --- 0. static pole ledger (seconds; not optional) --------------------
+# --- 0. stale-binary guard -------------------------------------------
+# Any abort below (ledger, maple, compile) must NOT leave the previous
+# binary runnable: the spike test would happily run it and report numbers
+# for a configuration that was never built.
+if [ -n "${TESTDIR:-}" ] && [ -n "${TARGET:-}" ] && [ -f "$TESTDIR/$TARGET" ]; then
+  rm -f "$TESTDIR/$TARGET"
+fi
+
+# --- 0b. static pole ledger (seconds; not optional) -------------------
 LEDGER="$ROOT/.claude/skills/write-subtraction/scripts/pole_ledger.py"
 MAPDIR="maple/process/$(basename "$SRCDIR")"
-if [ "$SKIP_LEDGER" = 1 ]; then
-  echo "WARNING: --skip-ledger — the static pole ledger did NOT run."
-  echo "         Structural errors will now cost a full build cycle each."
-elif [ ! -f "$LEDGER" ] || ! command -v python3 >/dev/null 2>&1; then
+if [ ! -f "$LEDGER" ] || ! command -v python3 >/dev/null 2>&1; then
   echo "WARNING: pole_ledger.py or python3 unavailable — ledger skipped."
 elif [ ! -d "$MAPDIR" ]; then
   echo "WARNING: no $MAPDIR — ledger skipped."
@@ -158,11 +167,19 @@ else
   done
   if [ "$nfail" -gt 0 ]; then
     echo
-    echo "ABORT: $nfail .map file(s) fail the static pole ledger."
-    echo "These are structure errors — fix them in the .map"
-    echo "(write-subtraction skill) before spending a build cycle."
-    echo "Deliberately testing a partial term? re-run --skip-ledger."
-    exit 1
+    if [ "$SKIP_LEDGER" = 1 ]; then
+      echo "--skip-ledger: $nfail .map file(s) FAIL the ledger (errors above)."
+      echo "Building anyway, as requested. The errors above are still real:"
+      echo "an orphaned counterterm or a split half used alone will show up"
+      echo "as an O(1e6) spike-test ratio, not as a subtle mismatch."
+    else
+      echo "ABORT: $nfail .map file(s) fail the static pole ledger."
+      echo "These are structure errors — fix them in the .map"
+      echo "(write-subtraction skill) before spending a build cycle."
+      echo "Deliberately testing a partial term? re-run --skip-ledger"
+      echo "(which still PRINTS these errors — it only skips the abort)."
+      exit 1
+    fi
   fi
   if [ "$nunchk" -gt 0 ] && [ "${LEDGER_REQUIRED:-0}" = 1 ]; then
     echo "ABORT: LEDGER_REQUIRED=1 and $nunchk .map file(s) have no spec."

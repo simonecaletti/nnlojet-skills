@@ -1067,6 +1067,62 @@
   ],
   "unsupported_poles": []
  },
+ "Et40FF": {
+  "arity": 4,
+  "fortran": "Et40FF",
+  "measured": {
+   "ds": {
+    "2,3": {
+     "alpha": 2.53
+    },
+    "2,4": {
+     "alpha": 3.26
+    },
+    "3,4": {
+     "alpha": 3.34
+    }
+   },
+   "sco": {
+    "2,4": {
+     "alpha": 1.04,
+     "power": 1
+    },
+    "3,4": {
+     "alpha": 1.17,
+     "power": 1
+    }
+   },
+   "splits": {},
+   "ss": {
+    "4": {
+     "alpha": 2.25,
+     "dipoles": {},
+     "note": "soft limit = eik x reduced X30, not eik x const: fit the residue with probe-me-ir-structure mode 3"
+    }
+   },
+   "tc": {
+    "2,3,4": {
+     "alpha": 2.32
+    }
+   }
+  },
+  "provenance": {
+   "date": "2026-08-10",
+   "npt": 30,
+   "process": "epem",
+   "testdir": "test/process/epem",
+   "xs": [
+    1e-05,
+    1e-06,
+    1e-07
+   ]
+  },
+  "requires_split": false,
+  "slots_declared": "i1,i2,i3,i4,ipset",
+  "source": "src/X40/Et40FF.f",
+  "species": null,
+  "unsupported_poles": []
+ },
  "F30FF": {
   "arity": 3,
   "fortran": "FullF30FF",
@@ -1484,6 +1540,62 @@
   "slot_pairs": [],
   "slots_declared": "i1,i2,i4,i3,ipset",
   "source": "src/X40/F40b.f",
+  "species": null,
+  "unsupported_poles": []
+ },
+ "FullEt40": {
+  "arity": 4,
+  "fortran": "FullEt40",
+  "measured": {
+   "ds": {
+    "2,3": {
+     "alpha": 3.23
+    },
+    "2,4": {
+     "alpha": 2.24
+    },
+    "3,4": {
+     "alpha": 3.31
+    }
+   },
+   "sco": {
+    "2,3": {
+     "alpha": 1.18,
+     "power": 1
+    },
+    "3,4": {
+     "alpha": 1.09,
+     "power": 1
+    }
+   },
+   "splits": {},
+   "ss": {
+    "3": {
+     "alpha": 2.06,
+     "dipoles": {},
+     "note": "soft limit = eik x reduced X30, not eik x const: fit the residue with probe-me-ir-structure mode 3"
+    }
+   },
+   "tc": {
+    "2,3,4": {
+     "alpha": 2.22
+    }
+   }
+  },
+  "provenance": {
+   "date": "2026-08-10",
+   "npt": 40,
+   "process": "epem",
+   "testdir": "test/process/epem",
+   "xs": [
+    1e-05,
+    1e-06,
+    1e-07
+   ]
+  },
+  "requires_split": false,
+  "slots_declared": "i1,i2,i4,i3,ipset",
+  "source": "src/X40/FullEt40.f",
   "species": null,
   "unsupported_poles": []
  },

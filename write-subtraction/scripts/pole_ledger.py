@@ -156,9 +156,11 @@ def parse_mode_name(family, name):
 # ---------------- line analysis ----------------
 
 class LineCheck:
-    def __init__(self, aN, term, flavours, sheet, report):
+    def __init__(self, aN, term, flavours, sheet, report,
+                 subleading=False):
         self.aN = aN
         self.term = term
+        self.subleading = subleading      # spec: colour == 'subleading'
         self.flavours = flavours          # leaf -> flavour string
         self.sheet = sheet
         self.rep = report
@@ -321,13 +323,29 @@ class LineCheck:
                 unchecked.append((self.aN, token))
                 continue
             if frozenset(legs) not in adjacency:
-                self.err(
+                # Chain adjacency is a LEADING-COLOUR criterion. A
+                # subleading-colour (tilde) ME is a different colour
+                # projection of the same amplitudes and genuinely carries
+                # soft correlations on non-adjacent (non-planar) dipoles —
+                # measurable with probe-me-ir-structure mode 1. Declaring
+                # "colour": "subleading" in the spec downgrades this to a
+                # warning so such a term can be checked at all; it stays a
+                # hard error by default, where it catches real slot errors.
+                msg = (
                     f"{token}: soft {show(norm(soft))} puts its eikonal on "
                     f"the dipole ({show(legs[0])},{show(legs[1])}), which "
-                    f"is NOT colour-connected in any declared chain — the "
-                    f"matrix element has no such singularity, so nothing "
-                    f"can cancel it. Check the antenna's slot assignment "
-                    f"(permute the ARGUMENTS, never wrap the function).")
+                    f"is NOT colour-connected in any declared chain. At "
+                    f"LEADING colour the matrix element has no such "
+                    f"singularity, so nothing can cancel it — check the "
+                    f"antenna's slot assignment (permute the ARGUMENTS, "
+                    f"never wrap the function).")
+                if self.subleading:
+                    self.warn(msg + " [spec says colour=subleading: "
+                              "non-planar dipoles are expected here — "
+                              "CONFIRM this one by a dipole fit before "
+                              "trusting it]")
+                else:
+                    self.err(msg)
 
     # -- flavour / species --
 
@@ -437,7 +455,9 @@ def run_ledger(mapfile, spec, sheet, modes, verbose=False, out=print):
     rep = {"errors": [], "warnings": [], "info": []}
     lines = []
     for aN, term in terms:
-        lc = LineCheck(aN, term, flavours, sheet, rep)
+        lc = LineCheck(aN, term, flavours, sheet, rep,
+                       subleading=(str(spec.get('colour', ''))
+                                   .lower() == 'subleading'))
         if not lc.antennae:
             rep["warnings"].append(
                 f"a{aN}: no antenna factor recognized in the "
