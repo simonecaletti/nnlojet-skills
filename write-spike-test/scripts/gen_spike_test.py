@@ -43,7 +43,7 @@ Spec fields:
                  above the double-precision floor, and a deeper override
                  is warned about rather than silently producing roundoff
                  that reads exactly like a missing counterterm.
-  nazim        : orientations in the azimuthal average of a gluon-parent
+  n_azim       : orientations in the azimuthal average of a gluon-parent
                  cluster (default 4; 2 is NOT enough — see below)
 
 Azimuthal averaging.  An antenna is spin-averaged, so it reproduces a
@@ -55,11 +55,11 @@ this generator:
     C1g0ZepemS the tc modes 3||4||7 and 4||5||6 sat at ~50% outliers
     with the 2-leg rotation and went to 1.000000 with ZERO outliers once
     all three legs moved together.
-  * `nazim` orientations kill harmonics up to cos((nazim-1)phi).  4 is
+  * `n_azim` orientations kill harmonics up to cos((n_azim-1)phi).  4 is
     enough for single- and triple-collinear clusters (exact above), but
     soft+collinear modes carry higher harmonics: same term, mode
-    "4 soft + 5||6" measured 40% / 18% / 10% outliers at nazim = 4 / 8 /
-    16, median -> 1.000000.  A residual that SHRINKS as nazim grows is
+    "4 soft + 5||6" measured 40% / 18% / 10% outliers at n_azim = 4 / 8 /
+    16, median -> 1.000000.  A residual that SHRINKS as n_azim grows is
     the average, not the subtraction term; one that does not is real.
 
 Build with the makefile pattern in the write-spike-test skill
@@ -253,9 +253,9 @@ def generate(spec):
     L.append("      dimension x(3)")
     L.append("      dimension vrat(100000)")
     L.append("      dimension mrot1(4), mrot2(4)")
-    L.append(f"      parameter (nazim={spec.get('nazim', 4)})")
+    L.append(f"      parameter (n_azim={spec.get('n_azim', 4)})")
     L.append("      parameter (pi=3.141592653589793238d0)")
-    L.append("      parameter (dazim=2d0*pi/dble(nazim))")
+    L.append("      parameter (dazim=2d0*pi/dble(n_azim))")
     L.append("      character*64 stitle")
     L.append("      character*32 arg")
     L.extend("      " + ln for ln in spec.get("decl_lines", []))
@@ -359,14 +359,14 @@ def generate(spec):
         L.append(f"            if (nrot{nr}.gt.0) then")
         L.append("              s1=wt1")
         L.append("              s2=wt2")
-        L.append(f"              do irot=1,nazim-1")
+        L.append(f"              do irot=1,n_azim-1")
         L.append(f"                call rotcl{npar}(mrot{nr},nrot{nr},dazim)")
         L.append("                s1=s1+test(itype)")
         L.append("                s2=s2+tests(itype)")
         L.append("              end do")
         L.append(f"              call rotcl{npar}(mrot{nr},nrot{nr},dazim)")
-        L.append("              wt1=s1/dble(nazim)")
-        L.append("              wt2=s2/dble(nazim)")
+        L.append("              wt1=s1/dble(n_azim)")
+        L.append("              wt2=s2/dble(n_azim)")
         L.append("            end if")
     L.append("            if (wt1.ne.wt1 .or. wt2.ne.wt2) then")
     L.append("              nnan=nnan+1")

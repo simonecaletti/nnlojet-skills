@@ -288,19 +288,19 @@ evidence about your term.
 The pass criterion for such modes is the median tending to 1 across the
 scan, not zero outliers.
 
-### Settle it by the nazim ladder, not by argument
+### Settle it by the n_azim ladder, not by argument
 
 There is a cheap, decisive test that does not need a reference term.
 An antenna is spin-averaged, so a gluon-parent cluster only agrees with
 the matrix element AFTER azimuthal averaging; the harness averages over
-`nazim` orientations (gen_spike_test.py, write-spike-test), which kills
-harmonics up to `cos((nazim-1)phi)` and no further. Regenerate the
-check program at `nazim` = 4, 8, 16 and watch the SAME mode:
+`n_azim` orientations (gen_spike_test.py, write-spike-test), which kills
+harmonics up to `cos((n_azim-1)phi)` and no further. Regenerate the
+check program at `n_azim` = 4, 8, 16 and watch the SAME mode:
 
 - outliers shrink monotonically and the median tightens onto
   `1.000000` → it is the average, the term is fine. Measured on
   `C1g0ZepemS` mode "4 soft + 5||6": **40% / 18% / 10%** outliers at
-  nazim 4 / 8 / 16.
+  n_azim 4 / 8 / 16.
 - outliers stay put, or the median sits off 1 by a stable amount → it
   is the term. Go to the mode→block diagnosis below.
 
