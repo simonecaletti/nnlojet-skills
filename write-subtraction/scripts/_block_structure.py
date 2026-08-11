@@ -24,6 +24,10 @@ import re
 MARKER = re.compile(r"^\s*#\s*block:\s*(\S+)")
 AXIS = re.compile(r"^\s*#\s*axis:\s*(\w+)\s*=\s*(.+?)\s*$")
 LABEL = re.compile(r"\*a(\d+)\b")
+# A label the generator will NOT recognise: *a19b, *aX, *a3_two.  These used to
+# pass through silently — the line stayed in the file, produced no wt() slot,
+# and the spike test then measured a configuration that was never built.
+BAD_LABEL = re.compile(r"\*a(?:\d+[A-Za-z_]|[A-Za-z_])\w*")
 
 
 def split_map(text):
@@ -62,6 +66,19 @@ def blocks_of(body):
             any(s.strip() for s in ls)]
 
 
+def check_labels(lines):
+    """Hard-fail on a malformed *aN label.  Silent acceptance here is the
+    exact failure this composer exists to prevent."""
+    for ln in lines:
+        m = BAD_LABEL.search(ln)
+        if m:
+            raise SystemExit(
+                f"ERROR: malformed label {m.group(0)!r} — labels must be "
+                f"*a<digits> with nothing appended.  The line would be kept "
+                f"but never renumbered, and the generator would emit no term "
+                f"for it.\n  {ln.strip()}")
+
+
 def renumber(lines):
     """Renumber every *aN occurrence sequentially, gap-free from 1."""
     counter = [0]
@@ -76,6 +93,7 @@ def renumber(lines):
 def compose(text, selected):
     """Compose a .map from the named blocks, aN renumbered gap-free."""
     head, body, tail = split_map(text)
+    check_labels(body)
     blks = blocks_of(body)
     names = [n for n, _ in blks]
     unknown = [s for s in selected if s not in names]

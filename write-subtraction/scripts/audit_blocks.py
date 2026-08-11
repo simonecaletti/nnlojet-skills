@@ -22,6 +22,7 @@ predict / emit / audit alike); prediction warnings go to stderr.
 Exit status: 1 on any MISSING/COUNT/EXTRA finding, else 0.
 """
 import argparse
+import re
 import sys
 
 from _block_structure import LABEL, MARKER
@@ -57,6 +58,32 @@ def audit(pred, text):
                        "summed term may legitimately differ)")
         else:
             rep.append(f"ok       {b}: {n}")
+    # The documented S,a anti-pattern: averaging over BOTH radiators and BOTH
+    # reduced-ME orderings with 1/2 factors.  It reproduces the collinear limit
+    # (so the single-unresolved modes read 1.000000 and look like a pass) and
+    # matches no X40 — every downstream pairing then fails for reasons that
+    # look like they belong to the block being edited.  Detectable statically.
+    cur, tot, half = None, {}, {}
+    for ln in text.splitlines():
+        m = MARKER.match(ln)
+        if m:
+            cur = m.group(1)
+            continue
+        if cur and cur.split("_")[0].startswith("Sa"):
+            n = len(LABEL.findall(ln))
+            if n:
+                tot[cur] = tot.get(cur, 0) + n
+                if re.search(r"(?<![\w/])1/2\s*\*", ln):
+                    half[cur] = half.get(cur, 0) + n
+    for b in sorted(tot):
+        if tot[b] >= 4 and half.get(b, 0) == tot[b]:
+            rep.append(
+                f"RADIATOR {b}: {tot[b]} lines, ALL at coefficient 1/2 — the "
+                "'average over radiators and orderings with 1/2 factors' "
+                "anti-pattern (SKILL.md): it reproduces the collinear limit "
+                "and matches no X40.  Sweep the radiator axis (G30-radiator, "
+                "coefficient 1, one line per ordering vs E30-radiator) BEFORE "
+                "building S,b1/S,b2 on it.")
     for k in sorted(actual):
         if k != "_default" and k.split("_")[0] not in pred["counts"]:
             rep.append(f"EXTRA    {k}: present but not predicted — either a "
