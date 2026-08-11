@@ -46,6 +46,16 @@ Spec fields:
   n_azim       : orientations in the azimuthal average of a gluon-parent
                  cluster (default 4; 2 is NOT enough — see below)
 
+The emitted program also prints, per accepted point and gated on
+NNLOJET_WTDEBUG=1, its full ME as
+
+    WTDBG MEFULL 0 0 <wt1>
+
+which is what fit_lines.py (run-spike-test) solves against the per-line
+WTDBG dumps of the subtraction term.  It is printed BEFORE the azimuthal
+rotations so that it pairs with the unrotated evaluation; moving it after
+them silently mis-pairs every rotated mode's constraint rows.
+
 Azimuthal averaging.  An antenna is spin-averaged, so it reproduces a
 gluon-parent collinear limit only after averaging over the cluster's
 azimuth.  Two things matter and both were wrong in the first version of
@@ -258,6 +268,7 @@ def generate(spec):
     L.append("      parameter (dazim=2d0*pi/dble(n_azim))")
     L.append("      character*64 stitle")
     L.append("      character*32 arg")
+    L.append("      character*8 wtdbgenv")
     L.extend("      " + ln for ln in spec.get("decl_lines", []))
     L.append("")
     L.append("c     CLI: ./" + prog + " ITYPE [MODELO MODEHI] [IPOINT] [ILOW]")
@@ -295,6 +306,8 @@ def generate(spec):
     L.append("      if (modelo.lt.1) modelo=1")
     L.append("      if (modehi.gt.nmodes) modehi=nmodes")
     L.append("")
+    L.append("      call get_environment_variable('NNLOJET_WTDEBUG',"
+             "wtdbgenv)")
     L.append(f'      call init_proc("{spec["process"]}")')
     L.append("      call init_map()")
     L.append(f"      call setSqrts_proc({spec['sqrts']}d0)")
@@ -346,6 +359,12 @@ def generate(spec):
     L.append("            if (ipass.ne.1) cycle")
     L.append("            wt1=test(itype)")
     L.append("            wt2=tests(itype)")
+    # per-point ME for fit_lines.py (run-spike-test).  Printed here, BEFORE
+    # the azimuthal rotations below, so it pairs with the UNROTATED
+    # evaluation -- fit_lines relies on that ordering.  Runtime-gated, so a
+    # normal run is byte-identical.
+    L.append("            if (wtdbgenv.eq.'1') write(*,'(A,E23.15)')")
+    L.append("     .        'WTDBG MEFULL 0 0 ', wt1")
     L.append("c           azimuthal average for gluon-parent clusters:")
     L.append("c           4 orientations (0, pi/2, pi, 3pi/2) about the")
     L.append("c           CLUSTER axis, rotating every leg of the cluster.")

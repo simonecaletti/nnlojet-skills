@@ -473,7 +473,47 @@ not an improvisation:
    searching. That conclusion is only available if the space was
    declared and swept exhaustively; sampling a dozen configurations by
    hand cannot distinguish "not found" from "not looked for".
-6. Remember the harness caveats: on DEAD modes rat→0 or noise is
+6. **Coefficients or a missing block? Solve, do not scan.** When a
+   sweep finds nothing, one more question is worth asking before
+   declaring a block missing: is the deficit even IN the span of the
+   lines you already wrote? That is a linear-algebra question, and
+   `fit_lines.py` answers it in one run from the same dumps step 3
+   uses:
+
+   ```bash
+   NNLOJET_WTDEBUG=1 OMP_NUM_THREADS=1 ./check5to3 <CH> 1 80 200 > run.out
+   python .claude/skills/run-spike-test/scripts/fit_lines.py \
+       --map <TERM>.map --fn <FNNAME> --log run.out \
+       --modes <failing,...> --hold <passing,...> --quiet
+   ```
+
+   It solves `ME = s·Σ cᵢ wtᵢ` for the line coefficients over the
+   FAILING modes, then evaluates that solution on the modes that
+   currently PASS, and returns a verdict:
+
+   - **CLOSABLE** — one coefficient set satisfies both; the printed
+     rationals are the term to write.
+   - **NOT CLOSABLE** — the failing modes are only fixed by
+     coefficients that break the held ones, so their deficit is not in
+     the span. Stop scanning; derive the missing structure.
+
+   The output is diagnostic even when it says NOT CLOSABLE, because it
+   names WHICH lines the fit wants to zero — those are the lines whose
+   over-reach the missing block must cancel, which turns "derive S,c"
+   into a bounded target. Worked instance: on epem `C1g0ZepemS` the fit
+   returned "zero `a3-a6` and `a19-a22`" (the S,a pair lines and their
+   mapped-gluon counterterms) while the held single-unresolved modes
+   needed them at full strength — a line cannot do both, which
+   identified the counterterm as the wrong OBJECT rather than a wrong
+   coefficient and closed the term one build cycle later.
+
+   Two traps the script handles, both of which silently corrupt a
+   hand-rolled version of this fit: the dumped `wt` carry the
+   generator's overall minus sign (`ME = −Σ wt`, so "as written" is
+   c = −1, auto-detected and reported); and in rotated modes only the
+   evaluation that PRECEDES the `WTDBG MEFULL` line shares its
+   kinematics.
+7. Remember the harness caveats: on DEAD modes rat→0 or noise is
    normal; a sub-singular mode reading 1.0000 is a false pass (see
    classification above); a control channel with an untouched `.map`
    separates harness artefacts from your term.

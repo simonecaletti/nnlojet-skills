@@ -541,6 +541,35 @@ The line list is DERIVED from the full ME, not invented:
      modes; wrong ordering → a large-magnitude, often sign-flipped
      ratio in exactly those modes, while the DOUBLE-unresolved modes
      may still look plausible (they do not discriminate).
+
+     **Rival writings are ALTERNATIVES — never compose both.** The two
+     writings cover the same overlap, so a term carrying both
+     double-counts it, and the symptom is the trap: the configuration
+     is WORSE than either writing alone, which reads as "the second
+     family is wrong" and gets it discarded. Before rejecting a
+     candidate block because adding it made things worse, check
+     whether it duplicates the role of a block already present, and
+     test it as a REPLACEMENT. Worked instance: on epem `C1g0ZepemS`
+     the mapped-gluon counterterm family was written twice — once with
+     the real quark/gluon as `d30FF` radiators, once with the mapped
+     gluon's neighbours — and adding the second on top of the first
+     drove four already-exact modes off 1.000000. Swapping them
+     instead took the term from 15/21 to 21/21 in a single build.
+
+     **Radiators of a counterterm on a MAPPED unresolved leg are read
+     off that line's OWN reduced ordering**, not off the original
+     chain. If an S,a line leaves the reduced state `l - i - [k,j] -
+     [m,k]`, then the mapped gluon `[k,j]` has neighbours `i` and
+     `[m,k]`, so its counterterm is `d30FF([m,k],[k,j],i)` — writing
+     `d30FF(l,[k,j],i)` uses radiators that are not adjacent to it
+     there. Both parse, both pass the ledger, and the wrong one leaves
+     exactly the double-unresolved modes broken while every
+     single-unresolved mode stays exact. `fit_lines.py`
+     (run-spike-test) localises this in one run: it returns "zero the
+     S,a pair lines and their counterterms" for the failing modes
+     while the passing modes need them at full strength, which names
+     the counterterm as the wrong object rather than a wrong
+     coefficient.
    - **S,c** — ALMOST-COLOUR-CONNECTED pair (separated by one hard
      radiator): a large-angle soft correction, written as SS-difference
      blocks multiplying `X30 × M` lines, shape
