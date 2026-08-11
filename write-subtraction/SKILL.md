@@ -422,7 +422,37 @@ structure; a block touching the right invariants with the wrong
 coefficients or mapping still passes. Coefficient-level completeness
 remains the spike test's job. Order of operations:
 `audit_blocks.py` (counts) → `pole_ledger.py` (invariants)
-→ generate → spike test (numbers).
+→ `pairing_balance.py` (per-pole arithmetic) → generate → spike test.
+
+**`pairing_balance.py` — the per-pole coefficient sums**, the arithmetic
+this skill otherwise asks you to do by hand ("for EACH pole, the
+coefficients of the iterated lines sharing that pole must sum against the
+X40's coefficient on that pole"):
+
+```bash
+python .claude/skills/write-subtraction/scripts/pairing_balance.py \
+       <TERM>.map --spec <TERM>.spec.json [--baseline <KNOWN_GOOD>.map]
+```
+
+Know its measured scope before relying on it — calibrated on four
+configurations of epem `C1g0ZepemS`, three with a known spike verdict:
+
+| configuration | sum\|total\| | spike test |
+|---|---|---|
+| validated | 12 | 21/21 modes |
+| wrong `d30FF` RADIATORS in the counterterms | **12** | 15/21 modes |
+| counterterm family missing | 20 | ~0.4 everywhere |
+| two rival families composed together | 16 | broken |
+
+So: `x40 + itr == 0` is NOT an invariant (one iterated line carries
+several poles and cancels different X40 halves in different regions), and
+there is no absolute pass mark. It SEPARATES count/coefficient errors —
+a missing family, a duplicated family — precisely the class the ledger
+passes because existence holds. It is BLIND to argument errors: rows 1
+and 2 above are byte-identical in its output. Only a run finds those
+(run-spike-test, then `fit_lines.py`). Use `--baseline` against a
+validated sibling term; that difference is the reading with an absolute
+meaning.
 
 The line list is DERIVED from the full ME, not invented:
 
