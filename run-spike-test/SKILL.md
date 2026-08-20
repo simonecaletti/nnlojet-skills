@@ -456,11 +456,30 @@ not an improvisation:
        --master master.map --out <TERM>.map \
        --regen "bash .../regen_rebuild.sh -n <N> -l RR -s src/process/<D> -t test/process/<P> -m <TARGET>" \
        --run "./<TARGET> 1 1 80 60 2" --run-cwd test/process/<P> \
-       --genuine 4,8,13,... --results scan.txt
+       --genuine auto --results scan.txt
    ```
 
-   A mode counts as exact only if its median is within tolerance AND
-   it has zero outliers. Two harness bugs are baked into the script
+   **The sweep scores a mode exactly the way you would read it by hand,
+   and the two ways of getting that wrong both make a negative result
+   worthless** — they reject configurations that were correct:
+
+   - the verdict is the **MEDIAN across the whole x scan**, not at one x.
+     A mode passes when the median sits at 1 and STAYS there; the
+     deepest x is allowed to fall off the plateau (roundoff — collinear
+     modes probe `s_ij/s ~ x**2`) and is FLAGGED in the results file
+     rather than dropped;
+   - **outlier counts are not part of the verdict.** A correct term
+     reads 45–50% outliers on gluon-parent modes at small `n_azim`
+     (reference baseline above), so scoring them as pass/fail ranks
+     configurations by `n_azim` instead of by correctness. They are
+     reported as an `OUTL` column and break ties only.
+
+   Use `--genuine auto`: it takes the mode numbers from the `[GENUINE]`
+   tags the check program prints in its own banners, so the numbering
+   cannot drift from the program's ordering the way a hand-transcribed
+   list does. Explicit lists still work for older untagged programs.
+
+   Two harness bugs are baked into the script
    because both cost a debugging round: never poll with
    `pgrep -f <your script>` (it matches the poller's own command line
    and never terminates), and never rank with `sort` on a line whose
