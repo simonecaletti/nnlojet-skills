@@ -61,8 +61,8 @@ gluon-parent collinear limit only after averaging over the cluster's
 azimuth.  Two things matter and both were wrong in the first version of
 this generator:
   * the WHOLE cluster must rotate about its parent axis.  Rotating two
-    legs of a triple-collinear cluster averages nothing: on epem
-    C1g0ZepemS the tc modes 3||4||7 and 4||5||6 sat at ~50% outliers
+    legs of a triple-collinear cluster averages nothing: on a 5-parton
+    epem term the tc modes 3||4||7 and 4||5||6 sat at ~50% outliers
     with the 2-leg rotation and went to 1.000000 with ZERO outliers once
     all three legs moved together.
   * `n_azim` orientations kill harmonics up to cos((n_azim-1)phi).  4 is
@@ -181,7 +181,7 @@ def fmt_x(x):
 
 #: Below this invariant ratio a double-precision evaluation of the ME is
 #: dominated by roundoff, so the spike ratio stops measuring the physics.
-#: Calibrated on epem C1g0ZepemS (5 partons, 250 pts/mode): s_ij/s = 1e-14
+#: Calibrated on a 5-parton epem term (250 pts/mode): s_ij/s = 1e-14
 #: still gives median 0.999997 with ZERO outliers on the g->qqbar
 #: collinear modes, while 1e-16 gives 13/100 outliers and 1e-18 collapses
 #: the median to 0.65.  So the floor sits between 1e-14 and 1e-16.

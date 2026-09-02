@@ -26,14 +26,14 @@ and their total.  Usage:
 MEASURED SCOPE -- what this catches and what it does NOT.
   `x40 + itr == 0` is NOT an invariant.  One iterated line carries
   several poles and cancels different X40 halves in different kinematic
-  regions, so a correct term shows nonzero totals.  Calibrated on epem
-  C1g0ZepemS in four configurations, three of them with a known
-  spike-test verdict:
+  regions, so a correct term shows nonzero totals.  Calibrated on one
+  validated 5-parton epem term in four configurations, three of them
+  with a known spike-test verdict:
 
     configuration                        sum|total|   spike test
     validated                                12       21/21 modes
-    wrong d30FF RADIATORS in the                                    
-      mapped-gluon counterterms              12       15/21 modes
+    wrong RADIATOR arguments in a
+      counterterm family                     12       15/21 modes
     counterterm family missing               20       ~0.4 everywhere
     two rival families composed together     16       broken
 
@@ -137,7 +137,7 @@ def analyse(lines, flavours):
     # SINGLE-unresolved poles only.  ds/tc poles of an X40 are its
     # legitimate job, not a spurious single, and are not collected on the
     # x40 side; letting them in on the iterated side alone manufactures
-    # ORPHANs on a correct term (measured on the validated C1g0ZepemS).
+    # ORPHANs on a correct term (measured on a validated term).
     for lc, pl in iterated:
         for p in (q for q in pl if q[0] in ("sco", "ss")):
             if p in poles:

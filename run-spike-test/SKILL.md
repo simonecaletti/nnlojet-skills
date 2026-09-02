@@ -259,14 +259,15 @@ the block in front of you and re-examine the S,a DECOMPOSITION.
 That pattern is what a wrong choice of emitter looks like from
 downstream: every subsequent block is being asked to pair with an S,a
 that no X40 matches, so each candidate fixes the half it happens to
-overlap and breaks the other. Measured instance (epem `C1g0ZepemS`): an
-S,a built on the quark-radiator `E30FF` at coefficient 1/2 over both
-radiators and both reduced-ME orderings reproduced every
-single-unresolved limit at `1.000000` on the first build, and then cost
-~20 build cycles of block-level repair that never converged — four X40
-placements excluded, a counterterm family invented, an S,c block
-diagnosed that did not exist. The correct term used the gluon-radiator
-`G30FF` at coefficient 1, one line per ordering. `audit_blocks.py`
+overlap and breaks the other. Measured instance: an S,a built on one
+radiator choice at coefficient 1/2, averaged over both radiators and
+both reduced-ME orderings, reproduced every single-unresolved limit at
+`1.000000` on the first build, and then cost ~20 build cycles of
+block-level repair that never converged — four X40 placements excluded,
+a counterterm family invented, an S,c block diagnosed that did not
+exist. The resolution was the other radiator choice at coefficient 1,
+one line per ordering — a change to the DECOMPOSITION, not to any
+downstream block. `audit_blocks.py`
 flags the 1/2-averaging form statically; `emit_skeleton.py` emits the
 radiator choice as an axis so it cannot be hard-coded silently.
 
@@ -333,7 +334,7 @@ check program at `n_azim` = 4, 8, 16 and watch the SAME mode:
 
 - outliers shrink monotonically and the median tightens onto
   `1.000000` → it is the average, the term is fine. Measured on
-  `C1g0ZepemS` mode "4 soft + 5||6": **40% / 18% / 10%** outliers at
+  one term's mode "4 soft + 5||6": **40% / 18% / 10%** outliers at
   n_azim 4 / 8 / 16.
 - outliers stay put, or the median sits off 1 by a stable amount → it
   is the term. Go to the mode→block diagnosis below.
@@ -519,9 +520,9 @@ not an improvisation:
    The output is diagnostic even when it says NOT CLOSABLE, because it
    names WHICH lines the fit wants to zero — those are the lines whose
    over-reach the missing block must cancel, which turns "derive S,c"
-   into a bounded target. Worked instance: on epem `C1g0ZepemS` the fit
-   returned "zero `a3-a6` and `a19-a22`" (the S,a pair lines and their
-   mapped-gluon counterterms) while the held single-unresolved modes
+   into a bounded target. Worked instance: the fit returned "zero
+   `a3-a6` and `a19-a22`" (the S,a pair lines and their mapped-gluon
+   counterterms) while the held single-unresolved modes
    needed them at full strength — a line cannot do both, which
    identified the counterterm as the wrong OBJECT rather than a wrong
    coefficient and closed the term one build cycle later.

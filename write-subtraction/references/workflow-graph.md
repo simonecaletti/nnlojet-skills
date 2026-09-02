@@ -18,9 +18,9 @@ loss has a measured cost:
 2. **"fix it" is not one edge.** It is at least seven, landing on four
    different nodes, with cost ratios around 100:1 between the cheapest
    and the dearest. A procedure with only one repair edge routes every
-   failure to "edit the block in front of me" — which is exactly how the
-   `C1g0ZepemS` rebuild spent ~20 build cycles repairing blocks
-   downstream of a wrong `S,a`.
+   failure to "edit the block in front of me" — which is exactly how one
+   rebuild spent ~20 build cycles repairing blocks downstream of a
+   wrong `S,a`.
 3. **"next channel" is not a plain loop.** Facts learned in channel N
    propagate backwards to channels already finished, and at least one
    channel must stay untouched as a control.

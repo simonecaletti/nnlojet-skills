@@ -352,7 +352,7 @@ colour-connected in some chain. A dipole in no chain is a singularity
 the ME does not have, so nothing can cancel it — and the ledger is
 otherwise blind to it, because the term's structure, flavours, clusters
 and pairing can all be perfectly consistent while the antenna sits on
-the wrong pair of legs. Verified on the reference `C1g0ZepemS`: the
+the wrong pair of legs. Verified on a validated reference term: the
 correct term reports 0 errors, and the same term with the two X40 pair
 slots swapped reports 4, naming the offending lines and dipoles. Without
 `chains` the ledger says UNCHECKED rather than passing silently.
@@ -413,9 +413,9 @@ live in the non-identical sibling term. Add
 reported rather than failed (mode coverage restricts to the declared
 families too). Without it the ledger would demand S,a lines that
 belong to another file. Verified: the four validated terms
-(`C0g0ZepemjjS`, `D0g0ZepemjjS` with the declaration, and both
-reference `C1g0ZepemS` implementations) report 0 errors, while a term
-missing an X40 half reports 9.
+(`C0g0ZepemjjS`, `D0g0ZepemjjS` with the declaration, and two
+independent implementations of the same 5-parton term) report 0 errors,
+while a term missing an X40 half reports 9.
 
 SCOPE — existence, not sufficiency: the ledger detects MISSING
 structure; a block touching the right invariants with the wrong
@@ -435,12 +435,13 @@ python .claude/skills/write-subtraction/scripts/pairing_balance.py \
 ```
 
 Know its measured scope before relying on it — calibrated on four
-configurations of epem `C1g0ZepemS`, three with a known spike verdict:
+configurations of one validated 5-parton epem term, three with a known
+spike verdict:
 
 | configuration | sum\|total\| | spike test |
 |---|---|---|
 | validated | 12 | 21/21 modes |
-| wrong `d30FF` RADIATORS in the counterterms | **12** | 15/21 modes |
+| wrong RADIATOR arguments in a counterterm family | **12** | 15/21 modes |
 | counterterm family missing | 20 | ~0.4 everywhere |
 | two rival families composed together | 16 | broken |
 
@@ -579,12 +580,12 @@ The line list is DERIVED from the full ME, not invented:
      family is wrong" and gets it discarded. Before rejecting a
      candidate block because adding it made things worse, check
      whether it duplicates the role of a block already present, and
-     test it as a REPLACEMENT. Worked instance: on epem `C1g0ZepemS`
-     the mapped-gluon counterterm family was written twice — once with
-     the real quark/gluon as `d30FF` radiators, once with the mapped
-     gluon's neighbours — and adding the second on top of the first
-     drove four already-exact modes off 1.000000. Swapping them
-     instead took the term from 15/21 to 21/21 in a single build.
+     test it as a REPLACEMENT. Worked instance: a counterterm family
+     for a mapped unresolved leg was written twice — once with the
+     original radiators, once with the mapped leg's neighbours — and
+     adding the second on top of the first drove four already-exact
+     modes off 1.000000. Swapping them instead took the term from
+     15/21 to 21/21 in a single build.
 
      **Radiators of a counterterm on a MAPPED unresolved leg are read
      off that line's OWN reduced ordering**, not off the original
@@ -1070,13 +1071,6 @@ these explicitly — every one is a silent, build-cycle-eating trap:
 Then validate as usual; the untouched-sibling control channel in
 run-spike-test is what separates crossing artefacts from harness
 effects.
-
-(A fully worked instance of this whole workflow belongs in
-`references/worked-example-C1g0ZepemS.md` — WHEN PRESENT. It contains
-EXERCISE ANSWERS for the reset-C1g0ZepemS clean-room rebuild, so it is
-routinely quarantined out of the repo; do not load it unless the user
-explicitly asks, and withhold it when that rebuild is run as a test. If
-the file is absent, that is the quarantine, not a broken link.)
 
 (`references/workflow-graph.md` writes the WHOLE-PROCESS procedure out
 as a graph: the nine nodes with their preconditions, artifacts and exit
