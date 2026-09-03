@@ -33,8 +33,11 @@ python .../genuine_modes.py --selftest && python .../gen_spike_test.py --selftes
 Spec inputs (documented in each script's docstring): the process init
 block copied from any existing check program of the process family, the
 final-state partons with flavours (`g`, `q<tag>`, `qb<tag>`), the legal
-Born flavour sets, and the channel list — (ME, subtraction) entry-point
-pairs with IDENTICAL momentum arguments. `genuine_modes.py` is also the
+Born flavour sets, optional colour-structure flags, and the channel list —
+(ME, subtraction) entry-point pairs with IDENTICAL momentum arguments.
+Set `colour: subleading` for `Bt`/`Bty` matrix elements and antennae, and
+`interference: true` for `D`/`Dy`; the defaults are leading colour and no
+interference, preserving existing specs. `genuine_modes.py` is also the
 per-mode checklist the whole validation hangs on: run it before reading
 any spike-test output (run-spike-test applies the same rule).
 
@@ -43,7 +46,8 @@ reads `genuine_modes.py --json` output to decide which legs admit an
 unresolved limit — without it, it falls back to a rule that over-counts.
 It reads a SUPERSET of this spec, so one file can drive both, but note
 the two use different keys: this script reads `partons` (final state
-only) and `born`; `predict_blocks.py` reads `chain` (the full colour
+only), `born`, and optional `colour`/`interference`; `predict_blocks.py`
+reads `chain` (the full colour
 ordering, initial legs included) and `flavours`. The flavour information
 therefore appears twice and is NOT cross-validated — keep them in sync
 by hand, or keep two files.

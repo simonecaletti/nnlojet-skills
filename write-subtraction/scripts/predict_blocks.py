@@ -41,8 +41,10 @@ twice and is NOT cross-validated. Keep them in sync by hand.
                   python genuine_modes.py spec.json --json > modes.json
                   python predict_blocks.py spec.json --modes modes.json
 
-  partons / born : optional — read by genuine_modes.py, ignored here, so
-              one spec file can drive both scripts.
+  partons / born / colour / interference : optional — read by
+              genuine_modes.py and ignored here, so one spec file can drive
+              both scripts. `colour` is "leading" or "subleading";
+              `interference` is boolean.
 
 Predicts: which blocks exist and their line counts, every sign, each
 antenna's FF/IF/FI/II configuration, the X30 family and coefficient, and

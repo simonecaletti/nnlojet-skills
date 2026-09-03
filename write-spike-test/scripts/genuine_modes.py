@@ -14,8 +14,14 @@ Spec:
             [["q1","qb1","g"]]. Tags are matched up to renaming.
   families: optional subset of
             ["ss","sco","ds","tc","sc","dc"]; default all.
+  colour  : optional "leading" (default) or "subleading". Use
+            "subleading" for Bt/Bty matrix elements and antennae.
+  interference: optional boolean (default false). Use true for D/Dy
+            identical-flavour exchange-interference matrix elements and
+            antennae. See the me-naming-convention skill for other names.
 
-The rule (empirically validated, 240/240 mode classifications): a
+The flavour part of the rule was empirically validated on 240/240 mode
+classifications. A
 configuration is a genuine limit iff, after replacing every collinear
 cluster by its parent parton (a cluster is valid iff its NET flavour is
 a single parton) and deleting every soft parton (a gluon, or a
@@ -26,6 +32,20 @@ the implementation reproduces by construction: a single quark never
 goes soft; composites are NOT decomposed pairwise; two individually
 genuine pairs can combine into a dead double limit if collapsing both
 breaks the Born.
+
+Colour structure then imposes monotone restrictions. In a subleading-
+colour (abelian) contribution, a mode is dead if any reduction contains
+a TWO-parton gluon-parent cluster (g||g or same-flavour q||qb), or a soft
+q qb pair deletion. The two-parton qualification is essential: a
+gluon-parent triple-collinear cluster is not removed. In an interference
+contribution, single-collinear factors, double collinears, and soft q qb
+pairs are dead; triple-collinear modes are left to the flavour rule.
+
+Limitations:
+  * Classification is for one matrix-element call. A check program that
+    sums cyclic orderings can be singular where an individual call is not.
+  * Fixed-ordering collinear singularities also require cyclic adjacency;
+    this classifier has no ordering information and cannot enforce it.
 """
 import itertools
 import json
@@ -130,8 +150,13 @@ def make_legal_checker(born):
 
 # ---------------- mode classification ----------------
 
-def classify(partons, born, families=None):
+def classify(partons, born, families=None, colour="leading",
+             interference=False):
     """partons: {index(int): flavour}. -> list of mode dicts."""
+    if colour not in ("leading", "subleading"):
+        raise ValueError("colour must be 'leading' or 'subleading'")
+    if not isinstance(interference, bool):
+        raise ValueError("interference must be a boolean")
     families = families or ["ss", "sco", "ds", "tc", "sc", "dc"]
     idx = sorted(partons)
     legal = make_legal_checker([tuple(sorted(b)) for b in born])
@@ -146,7 +171,40 @@ def classify(partons, born, families=None):
 
     out = []
 
-    def add(fam, name, ok, reason):
+    def colour_restrict(ok, reason, fam, clusters=(), soft_sets=()):
+        """Apply colour-only vetoes; an already-dead verdict is unchanged."""
+        if not ok:
+            return ok, reason
+        if colour == "subleading":
+            for cluster in clusters:
+                flavs = [partons[i] for i in cluster]
+                if len(cluster) == 2 and cluster_parent(flavs) == "g":
+                    return False, ("colour: subleading-colour two-parton "
+                                   "gluon-parent cluster")
+            for soft in soft_sets:
+                flavs = [partons[i] for i in soft]
+                if len(soft) == 2 and soft_deletable(flavs) and \
+                        all(parse(f)[0] != "g" for f in flavs):
+                    return False, ("colour: subleading-colour soft q qb "
+                                   "pair deletion")
+        if interference:
+            if fam in ("sco", "sc", "dc"):
+                return False, ("colour: interference collinear factor is "
+                               "integrable")
+            for soft in soft_sets:
+                flavs = [partons[i] for i in soft]
+                if len(soft) == 2 and soft_deletable(flavs) and \
+                        all(parse(f)[0] != "g" for f in flavs):
+                    return False, ("colour: interference soft q qb pair is "
+                                   "integrable")
+        return ok, reason
+
+    def add(fam, name, ok, reason, clusters=(), soft_sets=()):
+        ok, reason = colour_restrict(ok, reason, fam, clusters, soft_sets)
+        assert colour_restrict(ok, reason, fam, clusters, soft_sets) == \
+            (ok, reason), "colour restriction is not idempotent"
+        if not ok and not reason.startswith(("flavour:", "colour:")):
+            reason = "flavour: " + reason
         out.append({"family": fam, "name": name,
                     "genuine": bool(ok), "reason": reason})
 
@@ -158,7 +216,8 @@ def classify(partons, born, families=None):
                     continue
                 ok = legal(state_after(deleted=(i,)))
                 add(fam, f"{i} soft", ok,
-                    "remaining state legal" if ok else "no Born reachable")
+                    "remaining state legal" if ok else "no Born reachable",
+                    soft_sets=((i,),))
         elif fam == "sco":
             for i, j in itertools.combinations(idx, 2):
                 p = cluster_parent([partons[i], partons[j]])
@@ -167,7 +226,8 @@ def classify(partons, born, families=None):
                     continue
                 ok = legal(state_after(collapsed=((i, j),)))
                 add(fam, f"{i}||{j}", ok,
-                    f"parent {p}" if ok else "collapsed state not legal")
+                    f"parent {p}" if ok else "collapsed state not legal",
+                    clusters=((i, j),))
         elif fam == "ds":
             for i, j in itertools.combinations(idx, 2):
                 if not soft_deletable([partons[i], partons[j]]):
@@ -177,7 +237,7 @@ def classify(partons, born, families=None):
                 ok = legal(state_after(deleted=(i, j)))
                 add(fam, f"{i},{j} soft", ok,
                     "remaining state legal" if ok else
-                    "deleting pair breaks Born")
+                    "deleting pair breaks Born", soft_sets=((i, j),))
         elif fam == "tc":
             for i, j, k in itertools.combinations(idx, 3):
                 p = cluster_parent([partons[i], partons[j], partons[k]])
@@ -187,7 +247,8 @@ def classify(partons, born, families=None):
                     continue
                 ok = legal(state_after(collapsed=((i, j, k),)))
                 add(fam, f"{i}||{j}||{k}", ok,
-                    f"parent {p}" if ok else "collapsed state not legal")
+                    f"parent {p}" if ok else "collapsed state not legal",
+                    clusters=((i, j, k),))
         elif fam == "sc":
             for i in idx:
                 for j, k in itertools.combinations([x for x in idx if x != i], 2):
@@ -201,7 +262,8 @@ def classify(partons, born, families=None):
                         continue
                     ok = legal(state_after(collapsed=((j, k),), deleted=(i,)))
                     add(fam, nm, ok,
-                        "state legal" if ok else "no Born reachable")
+                        "state legal" if ok else "no Born reachable",
+                        clusters=((j, k),), soft_sets=((i,),))
         elif fam == "dc":
             for (i, j), (k, l) in itertools.combinations(
                     itertools.combinations(idx, 2), 2):
@@ -216,7 +278,8 @@ def classify(partons, born, families=None):
                 ok = legal(state_after(collapsed=((i, j), (k, l))))
                 add(fam, nm, ok,
                     "state legal" if ok else
-                    "collapsing both breaks Born (pairs may be individually genuine)")
+                    "collapsing both breaks Born (pairs may be individually genuine)",
+                    clusters=((i, j), (k, l)))
     return out
 
 
@@ -273,11 +336,25 @@ def selftest():
     # Born + one soft gluon: the soft-gluon modes are genuine by the
     # definition of the closure (not a process-specific answer)
     r2 = classify({1: "q1", 2: "qb1", 3: "g", 4: "g"}, born, ["ss"])
-    gluon_soft = [m for m in r2 if m["reason"] != "single quark never soft"]
+    gluon_soft = [m for m in r2
+                  if "single quark never soft" not in m["reason"]]
     assert gluon_soft and all(m["genuine"] for m in gluon_soft), \
         "Born+g: soft gluon must be genuine"
 
-    # 4. mode-count combinatorics for 5 partons: 5/10/10/10/30/15
+    # 4. Colour rules are monotone restrictions and repeated application is
+    # idempotent. These are structural properties, not physics answers.
+    def live(r):
+        return {(m["family"], m["name"]) for m in r if m["genuine"]}
+
+    leading = classify(partons, born)
+    subleading = classify(partons, born, colour="subleading")
+    plain = classify(partons, born)
+    interf = classify(partons, born, interference=True)
+    assert live(subleading) <= live(leading)
+    assert live(interf) <= live(plain)
+    # classify() applies each filter twice internally and asserts equality.
+
+    # 5. mode-count combinatorics for 5 partons: 5/10/10/10/30/15
     from math import comb
     cnt = {}
     for m in res:
@@ -304,7 +381,9 @@ def main():
     allnum = all(str(k).isdigit() for k in keys)
     partons = {(int(k) if allnum else str(k)): v
                for k, v in spec["partons"].items()}
-    res = classify(partons, spec["born"], spec.get("families"))
+    res = classify(partons, spec["born"], spec.get("families"),
+                   spec.get("colour", "leading"),
+                   spec.get("interference", False))
     if "--json" in sys.argv:
         json.dump(res, sys.stdout, indent=1)
         return

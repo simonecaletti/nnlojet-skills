@@ -26,6 +26,9 @@ Spec fields:
   fs_partons   : {"<momentum index>": "<flavour>"} — flavours as in
                  genuine_modes.py ("g", "q<tag>", "qb<tag>")
   born         : list of legal Born flavour lists (genuine_modes.py)
+  colour       : optional "leading" (default) or "subleading"; use the
+                 latter for Bt/Bty matrix elements and antennae
+  interference: optional boolean (default false); true for D/Dy
   decl_lines   : verbatim DECLARATION lines for the main program
   setup_lines  : verbatim EXECUTABLE init lines (must leave iplot!=0)
   cuts_call    : verbatim, e.g. "call ecuts_epem(1,7,ipass)"
@@ -222,7 +225,9 @@ def generate(spec):
     fams = RR_FAMS if contrib == "RR" else R_FAMS
     modes = enumerate_modes(fs, fams)
     cls = {(m["family"], m["name"]): m
-           for m in classify(fs, spec["born"], fams)}
+           for m in classify(fs, spec["born"], fams,
+                             spec.get("colour", "leading"),
+                             spec.get("interference", False))}
     # default x scans: the typical working range 1e-7..1e-9 (deeper —
     # down to 1e-10 — can work but is not automatically better; the
     # object is a PLATEAU at 1 across the scan, and instabilities at
